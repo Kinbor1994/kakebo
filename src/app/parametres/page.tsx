@@ -49,7 +49,14 @@ const CURRENCIES = [
 ];
 
 export default function ParametresPage() {
-  const { isLocked, userSettings, refreshSettings } = useSecurity();
+  const {
+    isLocked,
+    userSettings,
+    refreshSettings,
+    isBiometricAvailableOnDevice,
+    enableBiometrics,
+    disableBiometrics,
+  } = useSecurity();
   const currency = userSettings?.currency || 'XOF';
 
   const [currentMonth, setCurrentMonth] = useState<string>(getCurrentMonth());
@@ -379,12 +386,12 @@ export default function ParametresPage() {
           </div>
         </section>
 
-        {/* Section 3 : Sécurité & Verrouillage PIN */}
-        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3">
+        {/* Section 3 : Sécurité & Verrouillage PIN / Biométrie */}
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3.5">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-slate-200">
               <Lock className="h-4 w-4 text-slate-800 dark:text-slate-200" />
-              <span>Verrouillage local (Code PIN)</span>
+              <span>Verrouillage local (Code PIN & Biométrie)</span>
             </div>
 
             <span
@@ -402,13 +409,41 @@ export default function ParametresPage() {
             Sécurisez l&apos;accès physique à vos finances via l&apos;API Web Crypto. Le verrouillage s&apos;active automatiquement après inactivité ou mise en arrière-plan.
           </p>
 
-          <button
-            type="button"
-            onClick={() => setIsPinModalOpen(true)}
-            className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-200 transition"
-          >
-            {userSettings?.isPinEnabled ? 'Modifier ou désactiver le code PIN' : 'Configurer un code PIN'}
-          </button>
+          <div className="space-y-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setIsPinModalOpen(true)}
+              className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-200 transition"
+            >
+              {userSettings?.isPinEnabled ? 'Modifier ou désactiver le code PIN' : 'Configurer un code PIN'}
+            </button>
+
+            {userSettings?.isPinEnabled && isBiometricAvailableOnDevice && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-xs">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-emerald-900 dark:text-emerald-200">Déverrouillage par Empreinte / Face ID</p>
+                  <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400">Authentification biométrique locale WebAuthn</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (userSettings.isBiometricEnabled) {
+                      await disableBiometrics();
+                    } else {
+                      await enableBiometrics();
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition ${
+                    userSettings.isBiometricEnabled
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200'
+                  }`}
+                >
+                  {userSettings.isBiometricEnabled ? 'Activé' : 'Activer'}
+                </button>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Section 4 : Dépenses & Revenus Récurrents */}

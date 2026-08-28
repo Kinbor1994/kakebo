@@ -3,16 +3,22 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { db, getOrCreateUserSettings } from '@/lib/db';
 import { verifyPin, hashPin, generateSalt } from '@/lib/crypto';
+import { isBiometricAvailable, registerBiometric, verifyBiometric } from '@/lib/webauthn';
 import { type UserSettings } from '@/types/kakebo';
 
 interface SecurityContextType {
   isLocked: boolean;
   isPinConfigured: boolean;
+  isBiometricConfigured: boolean;
+  isBiometricAvailableOnDevice: boolean;
   userSettings: UserSettings | null;
   unlockWithPin: (pin: string) => Promise<boolean>;
+  unlockWithBiometrics: () => Promise<boolean>;
   lockNow: () => void;
   configurePin: (newPin: string) => Promise<boolean>;
   disablePin: (currentPin: string) => Promise<boolean>;
+  enableBiometrics: () => Promise<boolean>;
+  disableBiometrics: () => Promise<boolean>;
   refreshSettings: () => Promise<void>;
 }
 
@@ -22,6 +28,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [isLocked, setIsLocked] = useState<boolean>(false);
   const [isReady, setIsReady] = useState<boolean>(false);
+  const [isBiometricAvailableOnDevice, setIsBiometricAvailableOnDevice] = useState<boolean>(false);
   const activityTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const refreshSettings = useCallback(async () => {
@@ -29,7 +36,6 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       const settings = await getOrCreateUserSettings();
       setUserSettings(settings);
       if (settings.isPinEnabled && settings.pinHash) {
-        // Initial state when PIN is enabled is locked
         setIsLocked(true);
       } else {
         setIsLocked(false);
@@ -43,6 +49,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshSettings();
+    isBiometricAvailable().then(setIsBiometricAvailableOnDevice);
   }, [refreshSettings]);
 
   const lockNow = useCallback(() => {
@@ -62,7 +69,6 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     }
   }, [userSettings?.isPinEnabled, userSettings?.autoLockMinutes, isLocked]);
 
-  // Listen to user activity for auto-lock
   useEffect(() => {
     if (!userSettings?.isPinEnabled || userSettings.autoLockMinutes === 0) return;
 
@@ -78,7 +84,6 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     };
   }, [userSettings?.isPinEnabled, userSettings?.autoLockMinutes, resetActivityTimer]);
 
-  // Lock when page is hidden (switching apps on mobile)
   useEffect(() => {
     if (!userSettings?.isPinEnabled) return;
 
@@ -95,6 +100,17 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   const unlockWithPin = async (pin: string): Promise<boolean> => {
     if (!userSettings?.pinHash || !userSettings?.pinSalt) return false;
     const isValid = await verifyPin(pin, userSettings.pinSalt, userSettings.pinHash);
+    if (isValid) {
+      setIsLocked(false);
+      resetActivityTimer();
+      return true;
+    }
+    return false;
+  };
+
+  const unlockWithBiometrics = async (): Promise<boolean> => {
+    if (!userSettings?.isBiometricEnabled || !userSettings?.biometricCredentialId) return false;
+    const isValid = await verifyBiometric(userSettings.biometricCredentialId);
     if (isValid) {
       setIsLocked(false);
       resetActivityTimer();
@@ -133,6 +149,8 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       isPinEnabled: false,
       pinHash: undefined,
       pinSalt: undefined,
+      isBiometricEnabled: false,
+      biometricCredentialId: undefined,
     });
 
     await refreshSettings();
@@ -140,10 +158,33 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
     return true;
   };
 
+  const enableBiometrics = async (): Promise<boolean> => {
+    if (!userSettings?.id) return false;
+    const credentialId = await registerBiometric(userSettings.userName || 'Kakeibo');
+    if (!credentialId) return false;
+
+    await db.userSettings.update(userSettings.id, {
+      isBiometricEnabled: true,
+      biometricCredentialId: credentialId,
+    });
+    await refreshSettings();
+    return true;
+  };
+
+  const disableBiometrics = async (): Promise<boolean> => {
+    if (!userSettings?.id) return false;
+    await db.userSettings.update(userSettings.id, {
+      isBiometricEnabled: false,
+      biometricCredentialId: undefined,
+    });
+    await refreshSettings();
+    return true;
+  };
+
   if (!isReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FBFBF9] dark:bg-[#121413]">
-        <div className="animate-pulse text-sm font-medium text-stone-500 tracking-wider uppercase">
+      <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA] dark:bg-slate-950">
+        <div className="animate-pulse text-xs font-bold text-slate-500 tracking-wider uppercase">
           Kakeibo
         </div>
       </div>
@@ -155,11 +196,16 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
       value={{
         isLocked,
         isPinConfigured: Boolean(userSettings?.isPinEnabled && userSettings?.pinHash),
+        isBiometricConfigured: Boolean(userSettings?.isBiometricEnabled && userSettings?.biometricCredentialId),
+        isBiometricAvailableOnDevice,
         userSettings,
         unlockWithPin,
+        unlockWithBiometrics,
         lockNow,
         configurePin,
         disablePin,
+        enableBiometrics,
+        disableBiometrics,
         refreshSettings,
       }}
     >

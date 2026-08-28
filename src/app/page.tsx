@@ -24,6 +24,10 @@ import {
   ChevronRight,
   Trash2,
   Lightbulb,
+  PieChart,
+  Clock,
+  Handshake,
+  Target,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -113,6 +117,53 @@ export default function DashboardPage() {
               />
             ))}
           </div>
+        </section>
+
+        {/* Quick Modules Navigation Grid */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <Link
+            href="/analyses"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-1.5 group-hover:scale-110 transition">
+              <PieChart className="h-4 w-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Analyses</span>
+            <span className="text-[10px] text-slate-400">Graphiques & Zen</span>
+          </Link>
+
+          <Link
+            href="/rituels"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-1.5 group-hover:scale-110 transition">
+              <Clock className="h-4 w-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Wishlist 48h</span>
+            <span className="text-[10px] text-slate-400">Achats différés</span>
+          </Link>
+
+          <Link
+            href="/tontines"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-1.5 group-hover:scale-110 transition">
+              <Handshake className="h-4 w-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Tontines & Prêts</span>
+            <span className="text-[10px] text-slate-400">Cotisations</span>
+          </Link>
+
+          <Link
+            href="/cagnottes"
+            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 mb-1.5 group-hover:scale-110 transition">
+              <Target className="h-4 w-4 stroke-[2.2]" />
+            </div>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Cagnottes</span>
+            <span className="text-[10px] text-slate-400">Projets d&apos;épargne</span>
+          </Link>
         </section>
 
         {/* Recent Transactions List */}

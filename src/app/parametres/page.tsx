@@ -35,6 +35,8 @@ import {
   RotateCcw,
   X,
   Pencil,
+  Smartphone,
+  Sparkles,
 } from 'lucide-react';
 
 const CURRENCIES = [
@@ -598,7 +600,36 @@ export default function ParametresPage() {
           </div>
         </section>
 
-        {/* Section 6 : Réinitialisation */}
+        {/* Section 6 : Application PWA & Installation */}
+        <section className="rounded-2xl border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-emerald-100 dark:border-emerald-900/30">
+            <div className="flex items-center space-x-2 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+              <Smartphone className="h-4 w-4" />
+              <span>Application Mobile & Hors-Ligne (PWA)</span>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+              Installable
+            </span>
+          </div>
+
+          <p className="text-xs text-emerald-900/80 dark:text-emerald-200/80 leading-relaxed">
+            Installez Kakeibo directement sur l&apos;écran d&apos;accueil de votre smartphone ou tablette pour l&apos;utiliser en plein écran, sans barre d&apos;adresse et avec un chargement instantané hors-ligne.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem('kakeibo_pwa_install_dismissed');
+              window.location.reload();
+            }}
+            className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-sm"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Afficher la bannière d&apos;installation PWA</span>
+          </button>
+        </section>
+
+        {/* Section 7 : Réinitialisation */}
         <section className="rounded-2xl border border-rose-200 dark:border-rose-950/40 bg-rose-50/40 dark:bg-rose-950/10 p-4 space-y-3">
           <div className="flex items-center space-x-2 text-xs font-bold text-rose-700 dark:text-rose-400">
             <Trash2 className="h-4 w-4" />

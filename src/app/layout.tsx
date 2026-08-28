@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { SecurityProvider } from '@/components/security/SecurityContext';
 import { PwaRegister } from '@/components/layout/PwaRegister';
+import { PwaInstallPrompt } from '@/components/layout/PwaInstallPrompt';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -55,6 +56,7 @@ export default function RootLayout({
         <SecurityProvider>
           {children}
           <PwaRegister />
+          <PwaInstallPrompt />
         </SecurityProvider>
       </body>
     </html>

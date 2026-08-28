@@ -34,7 +34,7 @@ export const PILLARS_CONFIG: Record<KakeiboPillar, PillarMeta> = {
     id: 'needs',
     name: 'Besoins essentiels',
     subtitle: 'Vie courante & indispensable',
-    description: 'Dépenses vitales indispensables (nourriture, logement, transport, santé)',
+    description: 'Dépenses vitales indispensables (nourriture, logement, transport, santé, prêts)',
     colorHex: '#059669',
     lightBgHex: '#ECFDF5',
     badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
@@ -45,6 +45,7 @@ export const PILLARS_CONFIG: Record<KakeiboPillar, PillarMeta> = {
     defaultCategories: [
       'Alimentation & Courses',
       'Loyer & Logement',
+      'Prêt Bancaire & Crédit',
       'Factures (Électricité, Eau)',
       'Santé & Pharmacie',
       'Transport & Carburant',
@@ -118,7 +119,7 @@ export interface MonthlyBudget {
   month: string;                // Format 'YYYY-MM'
   fixedIncomes: number;         // Salaires, revenus réguliers
   extraIncomes: number;         // Primes, ventes occasionnelles, aides
-  fixedExpenses: number;        // Loyer, factures, charges fixes
+  fixedExpenses: number;        // Loyer, factures, charges fixes, prêts
   targetSavings: number;        // Épargne décidée en début de mois
   notes?: string;
   createdAt: string;
@@ -195,19 +196,19 @@ export interface WishlistItem {
 }
 
 // Module Dettes, Créances, Tontines & Prêts Bancaires
-export type DebtLoanType = 'lent' | 'borrowed' | 'tontine' | 'bank_loan';
+export type DebtLoanType = 'bank_loan' | 'tontine' | 'lent' | 'borrowed';
 
 export interface DebtOrLoan {
   id?: number;
   type: DebtLoanType;
   title: string;
-  contactName: string;          // Nom du contact ou établissement bancaire (ex: Ecobank, BOA...)
-  totalAmount: number;          // Montant total du capital ou de la dette
+  contactName: string;          // Nom de la banque (BOA, Ecobank...) ou contact
+  totalAmount: number;          // Montant total du capital emprunté
   paidAmount: number;           // Montant déjà remboursé (amorti)
-  monthlyPayment?: number;      // Mensualité régulière
+  monthlyPayment?: number;      // Mensualité fixe en F CFA
   interestRate?: number;        // Taux d'intérêt annuel en %
-  dueDate?: string;             // Date d'échéance finale (YYYY-MM-DD)
-  dayOfMonth?: number;          // 1-31 (jour de prélèvement ou de cotisation)
+  dueDate?: string;             // Date d'échéance de fin (YYYY-MM-DD)
+  dayOfMonth?: number;          // 1-31 (jour de prélèvement de la mensualité)
   notes?: string;
   status: 'active' | 'settled';
   createdAt: string;

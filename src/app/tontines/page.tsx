@@ -522,7 +522,7 @@ export default function TontinesPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={
                     entryType === 'bank_loan'
-                      ? 'Ex: Crédit Immobilier, Prêt Auto, Prêt Personnel...'
+                      ? 'Ex: Prêt Scolaire Rentrée, Crédit Consommation, Prêt Véhicule, Crédit Immo...'
                       : 'Ex: Tontine des amis, Prêt frangin...'
                   }
                   required
@@ -607,28 +607,82 @@ export default function TontinesPage() {
                     </div>
                   </div>
 
-                  {/* Quick duration presets */}
-                  <div className="flex space-x-1.5 overflow-x-auto pb-0.5">
-                    {[
-                      { label: '1 an (12m)', val: 12 },
-                      { label: '2 ans (24m)', val: 24 },
-                      { label: '3 ans (36m)', val: 36 },
-                      { label: '5 ans (60m)', val: 60 },
-                      { label: '10 ans (120m)', val: 120 },
-                    ].map((p) => (
+                  {/* Quick templates & Loan presets */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-500">
+                      Modèles de prêts fréquents :
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
                       <button
-                        key={p.val}
                         type="button"
-                        onClick={() => setDurationMonths(p.val)}
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition ${
-                          durationMonths === p.val
-                            ? 'bg-purple-600 text-white border-purple-600'
-                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+                        onClick={() => {
+                          setDurationMonths(10);
+                          if (!title || title.includes('Prêt')) setTitle('Prêt Scolaire Rentrée');
+                        }}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 10
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
                         }`}
                       >
-                        {p.label}
+                        🎓 Prêt Scolaire (10 mois)
                       </button>
-                    ))}
+                      <button
+                        type="button"
+                        onClick={() => setDurationMonths(6)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 6
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        ⚡ Court terme (6 mois)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDurationMonths(12)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 12
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        12 mois (1 an)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDurationMonths(24)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 24
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        24 mois (2 ans)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDurationMonths(36)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 36
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        36 mois (3 ans)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDurationMonths(60)}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 60
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        60 mois (5 ans)
+                      </button>
+                    </div>
                   </div>
 
                   {/* Automatic Calculation Result Card */}

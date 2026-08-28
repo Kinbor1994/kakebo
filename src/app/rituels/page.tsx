@@ -26,6 +26,8 @@ import {
   X,
   Hourglass,
   Flame,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import { addHours, format, formatDistanceToNow, isAfter, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -38,13 +40,18 @@ export default function RituelsPage() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false);
   const [isMonthSetupOpen, setIsMonthSetupOpen] = useState<boolean>(false);
 
-  // Wishlist modal state
+  // Wishlist modal states
   const [isAddWishlistOpen, setIsAddWishlistOpen] = useState<boolean>(false);
+  const [editingWish, setEditingWish] = useState<WishlistItem | null>(null);
+
   const [wishTitle, setWishTitle] = useState<string>('');
   const [wishAmount, setWishAmount] = useState<string>('');
   const [wishPillar, setWishPillar] = useState<KakeiboPillar>('wants');
   const [wishCategory, setWishCategory] = useState<string>('Sorties & Détente');
   const [wishNotes, setWishNotes] = useState<string>('');
+
+  // Delete confirmation
+  const [wishToDelete, setWishToDelete] = useState<WishlistItem | null>(null);
 
   const wishlistItems = useLiveQuery(() => db.wishlistItems.toArray()) || [];
   const challenges = useLiveQuery(() => db.savingsChallenges.where('month').equals(currentMonth).toArray()) || [];
@@ -52,29 +59,57 @@ export default function RituelsPage() {
   const pendingWishes = wishlistItems.filter((w) => w.status === 'pending');
   const resolvedWishes = wishlistItems.filter((w) => w.status !== 'pending');
 
-  const handleCreateWish = async (e: React.FormEvent) => {
+  const handleOpenAddWish = () => {
+    setEditingWish(null);
+    setWishTitle('');
+    setWishAmount('');
+    setWishPillar('wants');
+    setWishCategory('Sorties & Détente');
+    setWishNotes('');
+    setIsAddWishlistOpen(true);
+  };
+
+  const handleOpenEditWish = (item: WishlistItem) => {
+    setEditingWish(item);
+    setWishTitle(item.title);
+    setWishAmount(String(item.amount));
+    setWishPillar(item.pillar);
+    setWishCategory(item.category);
+    setWishNotes(item.notes || '');
+    setIsAddWishlistOpen(true);
+  };
+
+  const handleSaveWish = async (e: React.FormEvent) => {
     e.preventDefault();
     const numAmt = parseFloat(wishAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
     if (!wishTitle.trim() || numAmt <= 0) return;
 
-    const now = new Date();
-    const expiresAt = addHours(now, 48);
+    if (editingWish && editingWish.id) {
+      await db.wishlistItems.update(editingWish.id, {
+        title: wishTitle.trim(),
+        amount: numAmt,
+        pillar: wishPillar,
+        category: wishCategory,
+        notes: wishNotes.trim() || undefined,
+      });
+    } else {
+      const now = new Date();
+      const expiresAt = addHours(now, 48);
 
-    await db.wishlistItems.add({
-      title: wishTitle.trim(),
-      amount: numAmt,
-      pillar: wishPillar,
-      category: wishCategory,
-      createdAt: now.toISOString(),
-      reflectionExpiresAt: expiresAt.toISOString(),
-      status: 'pending',
-      notes: wishNotes.trim() || undefined,
-    });
+      await db.wishlistItems.add({
+        title: wishTitle.trim(),
+        amount: numAmt,
+        pillar: wishPillar,
+        category: wishCategory,
+        createdAt: now.toISOString(),
+        reflectionExpiresAt: expiresAt.toISOString(),
+        status: 'pending',
+        notes: wishNotes.trim() || undefined,
+      });
+    }
 
-    setWishTitle('');
-    setWishAmount('');
-    setWishNotes('');
     setIsAddWishlistOpen(false);
+    setEditingWish(null);
   };
 
   // Convert to actual bought transaction
@@ -82,7 +117,6 @@ export default function RituelsPage() {
     if (!item.id) return;
     const now = new Date();
 
-    // 1. Add as transaction
     await db.transactions.add({
       month: format(now, 'yyyy-MM'),
       date: format(now, 'yyyy-MM-dd'),
@@ -94,7 +128,6 @@ export default function RituelsPage() {
       createdAt: now.toISOString(),
     });
 
-    // 2. Mark wish as bought
     await db.wishlistItems.update(item.id, { status: 'bought' });
   };
 
@@ -110,9 +143,10 @@ export default function RituelsPage() {
     });
   };
 
-  const handleDeleteWish = async (id?: number) => {
-    if (!id) return;
-    await db.wishlistItems.delete(id);
+  const handleDeleteWish = async () => {
+    if (!wishToDelete?.id) return;
+    await db.wishlistItems.delete(wishToDelete.id);
+    setWishToDelete(null);
   };
 
   const handlePrintReport = () => {
@@ -162,7 +196,7 @@ export default function RituelsPage() {
 
             <button
               type="button"
-              onClick={() => setIsAddWishlistOpen(true)}
+              onClick={handleOpenAddWish}
               className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-2xs active:scale-98"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -242,12 +276,21 @@ export default function RituelsPage() {
                         className="flex-1 flex items-center justify-center space-x-1 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold hover:bg-slate-800 transition"
                       >
                         <ShoppingBag className="h-3.5 w-3.5" />
-                        <span>J&apos;achète consciemment</span>
+                        <span>J&apos;achète</span>
                       </button>
 
                       <button
                         type="button"
-                        onClick={() => handleDeleteWish(item.id)}
+                        onClick={() => handleOpenEditWish(item)}
+                        className="p-2 text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition"
+                        title="Modifier"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setWishToDelete(item)}
                         className="p-2 text-slate-400 hover:text-rose-600 transition"
                         title="Supprimer"
                       >
@@ -277,22 +320,33 @@ export default function RituelsPage() {
                     </p>
                   </div>
 
-                  <span
-                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      w.status === 'abandoned'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {w.status === 'abandoned' ? (
-                      <>
-                        <Sparkles className="h-3 w-3" />
-                        <span>Économisé</span>
-                      </>
-                    ) : (
-                      <span>Acheté</span>
-                    )}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        w.status === 'abandoned'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {w.status === 'abandoned' ? (
+                        <>
+                          <Sparkles className="h-3 w-3" />
+                          <span>Économisé</span>
+                        </>
+                      ) : (
+                        <span>Acheté</span>
+                      )}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setWishToDelete(w)}
+                      className="p-1 text-slate-400 hover:text-rose-600 transition"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -313,12 +367,14 @@ export default function RituelsPage() {
         </section>
       </main>
 
-      {/* Add Wish Modal */}
+      {/* Add / Edit Wish Modal */}
       {isAddWishlistOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold">Différer un achat (Délai 48h)</h2>
+              <h2 className="text-base font-bold">
+                {editingWish ? 'Modifier le souhait de réflexion' : 'Différer un achat (Délai 48h)'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsAddWishlistOpen(false)}
@@ -328,7 +384,7 @@ export default function RituelsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateWish} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveWish} className="space-y-3 text-xs">
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">Nom de l&apos;article ou service</label>
                 <input
@@ -383,9 +439,42 @@ export default function RituelsPage() {
                 type="submit"
                 className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition mt-2"
               >
-                Démarrer le compte à rebours 48h
+                {editingWish ? 'Enregistrer les modifications' : 'Démarrer le compte à rebours 48h'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Wish Confirmation Modal */}
+      {wishToDelete && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold">Supprimer cet article ?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Voulez-vous supprimer <strong>&quot;{wishToDelete.title}&quot;</strong> ({formatCurrency(wishToDelete.amount, currency)}) ?
+              </p>
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setWishToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteWish}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
+              >
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -34,6 +34,7 @@ import {
   Tags,
   RotateCcw,
   X,
+  Pencil,
 } from 'lucide-react';
 
 const CURRENCIES = [
@@ -70,6 +71,7 @@ export default function ParametresPage() {
 
   // Recurring item form
   const [isAddRecurringOpen, setIsAddRecurringOpen] = useState<boolean>(false);
+  const [editingRecurring, setEditingRecurring] = useState<RecurringItem | null>(null);
   const [recTitle, setRecTitle] = useState<string>('');
   const [recAmount, setRecAmount] = useState<string>('');
   const [recType, setRecType] = useState<'expense' | 'income'>('expense');
@@ -88,6 +90,61 @@ export default function ParametresPage() {
     if (!userSettings?.id) return;
     await db.userSettings.update(userSettings.id, { currency: newCurr });
     await refreshSettings();
+  };
+
+  const handleOpenAddRecurring = () => {
+    setEditingRecurring(null);
+    setRecTitle('');
+    setRecAmount('');
+    setRecType('expense');
+    setRecPillar('needs');
+    setRecCategory('Loyer & Logement');
+    setRecDay(1);
+    setIsAddRecurringOpen(true);
+  };
+
+  const handleOpenEditRecurring = (item: RecurringItem) => {
+    setEditingRecurring(item);
+    setRecTitle(item.title);
+    setRecAmount(String(item.amount));
+    setRecType(item.type);
+    setRecPillar(item.pillar || 'needs');
+    setRecCategory(item.category);
+    setRecDay(item.dayOfMonth);
+    setIsAddRecurringOpen(true);
+  };
+
+  const handleSaveRecurring = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const numAmt = parseFloat(recAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
+    if (!recTitle.trim() || numAmt <= 0) return;
+
+    if (editingRecurring && editingRecurring.id) {
+      await db.recurringItems.update(editingRecurring.id, {
+        title: recTitle.trim(),
+        amount: numAmt,
+        type: recType,
+        pillar: recType === 'expense' ? recPillar : undefined,
+        category: recCategory,
+        dayOfMonth: recDay,
+      });
+    } else {
+      await db.recurringItems.add({
+        title: recTitle.trim(),
+        amount: numAmt,
+        type: recType,
+        pillar: recType === 'expense' ? recPillar : undefined,
+        category: recCategory,
+        dayOfMonth: recDay,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    setRecTitle('');
+    setRecAmount('');
+    setEditingRecurring(null);
+    setIsAddRecurringOpen(false);
   };
 
   // Category management handlers
@@ -168,27 +225,6 @@ export default function ParametresPage() {
     await refreshSettings();
     setBackupStatus('Catégories réinitialisées aux valeurs par défaut.');
     setTimeout(() => setBackupStatus(''), 3000);
-  };
-
-  const handleCreateRecurring = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const numAmt = parseFloat(recAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
-    if (!recTitle.trim() || numAmt <= 0) return;
-
-    await db.recurringItems.add({
-      title: recTitle.trim(),
-      amount: numAmt,
-      type: recType,
-      pillar: recType === 'expense' ? recPillar : undefined,
-      category: recCategory,
-      dayOfMonth: recDay,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    });
-
-    setRecTitle('');
-    setRecAmount('');
-    setIsAddRecurringOpen(false);
   };
 
   const handleToggleRecurring = async (item: RecurringItem) => {
@@ -456,7 +492,7 @@ export default function ParametresPage() {
 
             <button
               type="button"
-              onClick={() => setIsAddRecurringOpen(true)}
+              onClick={handleOpenAddRecurring}
               className="flex items-center space-x-1 text-xs font-bold text-emerald-600 hover:underline"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -482,8 +518,8 @@ export default function ParametresPage() {
                     </p>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="font-bold mr-1">
                       {formatCurrency(item.amount, currency)}
                     </span>
                     <button
@@ -497,8 +533,17 @@ export default function ParametresPage() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleOpenEditRecurring(item)}
+                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      title="Modifier"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleDeleteRecurring(item.id)}
                       className="p-1 text-slate-400 hover:text-rose-600"
+                      title="Supprimer"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -593,7 +638,9 @@ export default function ParametresPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold">Ajouter une opération récurrente</h2>
+              <h2 className="text-base font-bold">
+                {editingRecurring ? "Modifier l'opération récurrente" : 'Ajouter une opération récurrente'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsAddRecurringOpen(false)}
@@ -603,7 +650,7 @@ export default function ParametresPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateRecurring} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveRecurring} className="space-y-3 text-xs">
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">Nom de l&apos;opération</label>
                 <input
@@ -665,18 +712,29 @@ export default function ParametresPage() {
                     >
                       <option value="needs">Besoins essentiels</option>
                       <option value="wants">Envies & Plaisirs</option>
-                      <option value="culture">Culture & Savoir</option>
+                      <option value="culture">Culture & Formation</option>
                       <option value="unexpected">Imprévus & Extras</option>
                     </select>
                   </div>
                 )}
               </div>
 
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Catégorie</label>
+                <input
+                  type="text"
+                  value={recCategory}
+                  onChange={(e) => setRecCategory(e.target.value)}
+                  required
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold mt-2 hover:bg-emerald-700 transition"
+                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition mt-2 shadow-sm"
               >
-                Enregistrer l&apos;opération
+                {editingRecurring ? 'Enregistrer les modifications' : "Ajouter l'opération récurrente"}
               </button>
             </form>
           </div>

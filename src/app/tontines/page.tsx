@@ -22,6 +22,9 @@ import {
   Calculator,
   Calendar,
   Sparkles,
+  Pencil,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { format, addMonths, parseISO } from 'date-fns';
 
@@ -36,8 +39,11 @@ export default function TontinesPage() {
   // Filter tabs: 'all' | 'bank_loan' | 'tontine' | 'lent' | 'borrowed'
   const [activeTab, setActiveTab] = useState<'all' | DebtLoanType>('all');
 
-  // New entry modal
+  // New / Edit modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [editingItem, setEditingItem] = useState<DebtOrLoan | null>(null);
+
+  // Form states
   const [entryType, setEntryType] = useState<DebtLoanType>('bank_loan');
   const [title, setTitle] = useState<string>('');
   const [contactName, setContactName] = useState<string>('');
@@ -53,6 +59,9 @@ export default function TontinesPage() {
   // Payment modal
   const [activeItemForPayment, setActiveItemForPayment] = useState<DebtOrLoan | null>(null);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
+
+  // Delete confirmation
+  const [itemToDelete, setItemToDelete] = useState<DebtOrLoan | null>(null);
 
   const debtsAndLoans = useLiveQuery(() => db.debtsAndLoans.toArray()) || [];
 
@@ -97,53 +106,118 @@ export default function TontinesPage() {
     .filter((d) => d.type === 'borrowed' && d.status === 'active')
     .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
 
-  const handleCreateEntry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const numPaid = parseFloat(paidAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
-
-    if (!title.trim() || parsedPrincipal <= 0) return;
-
-    if (entryType === 'bank_loan') {
-      await db.debtsAndLoans.add({
-        type: 'bank_loan',
-        title: title.trim(),
-        contactName: contactName.trim() || 'Établissement Bancaire',
-        totalAmount: parsedPrincipal,
-        paidAmount: numPaid,
-        monthlyPayment: loanCalculation.monthlyPayment,
-        durationMonths,
-        interestRate: parsedRate,
-        totalInterest: loanCalculation.totalInterest,
-        dueDate: calculatedEndDate,
-        dayOfMonth,
-        notes: notes.trim() || undefined,
-        status: numPaid >= parsedPrincipal ? 'settled' : 'active',
-        createdAt: new Date().toISOString(),
-      });
-    } else {
-      await db.debtsAndLoans.add({
-        type: entryType,
-        title: title.trim(),
-        contactName: contactName.trim() || 'Non spécifié',
-        totalAmount: parsedPrincipal,
-        paidAmount: numPaid,
-        dueDate: dueDate || undefined,
-        dayOfMonth: entryType === 'tontine' ? dayOfMonth : undefined,
-        notes: notes.trim() || undefined,
-        status: numPaid >= parsedPrincipal ? 'settled' : 'active',
-        createdAt: new Date().toISOString(),
-      });
-    }
-
+  const handleOpenAdd = () => {
+    setEditingItem(null);
+    setEntryType('bank_loan');
     setTitle('');
     setContactName('');
     setTotalAmount('5000000');
     setPaidAmount('0');
     setInterestRate('7.5');
     setDurationMonths(36);
+    setStartDate(format(new Date(), 'yyyy-MM-dd'));
+    setDayOfMonth(5);
     setDueDate('');
     setNotes('');
+    setIsAddModalOpen(true);
+  };
+
+  const handleOpenEdit = (item: DebtOrLoan) => {
+    setEditingItem(item);
+    setEntryType(item.type);
+    setTitle(item.title);
+    setContactName(item.contactName);
+    setTotalAmount(String(item.totalAmount));
+    setPaidAmount(String(item.paidAmount));
+    setInterestRate(item.interestRate !== undefined ? String(item.interestRate) : '7.5');
+    setDurationMonths(item.durationMonths || 36);
+    setStartDate(format(new Date(), 'yyyy-MM-dd'));
+    setDayOfMonth(item.dayOfMonth || 5);
+    setDueDate(item.dueDate || '');
+    setNotes(item.notes || '');
+    setIsAddModalOpen(true);
+  };
+
+  const handleSaveEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const numPaid = parseFloat(paidAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
+
+    if (!title.trim() || parsedPrincipal <= 0) return;
+
+    if (editingItem && editingItem.id) {
+      // UPDATE EXISTING
+      if (entryType === 'bank_loan') {
+        await db.debtsAndLoans.update(editingItem.id, {
+          type: 'bank_loan',
+          title: title.trim(),
+          contactName: contactName.trim() || 'Établissement Bancaire',
+          totalAmount: parsedPrincipal,
+          paidAmount: numPaid,
+          monthlyPayment: loanCalculation.monthlyPayment,
+          durationMonths,
+          interestRate: parsedRate,
+          totalInterest: loanCalculation.totalInterest,
+          dueDate: calculatedEndDate,
+          dayOfMonth,
+          notes: notes.trim() || undefined,
+          status: numPaid >= parsedPrincipal ? 'settled' : 'active',
+        });
+      } else {
+        await db.debtsAndLoans.update(editingItem.id, {
+          type: entryType,
+          title: title.trim(),
+          contactName: contactName.trim() || 'Non spécifié',
+          totalAmount: parsedPrincipal,
+          paidAmount: numPaid,
+          dueDate: dueDate || undefined,
+          dayOfMonth: entryType === 'tontine' ? dayOfMonth : undefined,
+          notes: notes.trim() || undefined,
+          status: numPaid >= parsedPrincipal ? 'settled' : 'active',
+        });
+      }
+    } else {
+      // CREATE NEW
+      if (entryType === 'bank_loan') {
+        await db.debtsAndLoans.add({
+          type: 'bank_loan',
+          title: title.trim(),
+          contactName: contactName.trim() || 'Établissement Bancaire',
+          totalAmount: parsedPrincipal,
+          paidAmount: numPaid,
+          monthlyPayment: loanCalculation.monthlyPayment,
+          durationMonths,
+          interestRate: parsedRate,
+          totalInterest: loanCalculation.totalInterest,
+          dueDate: calculatedEndDate,
+          dayOfMonth,
+          notes: notes.trim() || undefined,
+          status: numPaid >= parsedPrincipal ? 'settled' : 'active',
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        await db.debtsAndLoans.add({
+          type: entryType,
+          title: title.trim(),
+          contactName: contactName.trim() || 'Non spécifié',
+          totalAmount: parsedPrincipal,
+          paidAmount: numPaid,
+          dueDate: dueDate || undefined,
+          dayOfMonth: entryType === 'tontine' ? dayOfMonth : undefined,
+          notes: notes.trim() || undefined,
+          status: numPaid >= parsedPrincipal ? 'settled' : 'active',
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+
     setIsAddModalOpen(false);
+    setEditingItem(null);
+  };
+
+  const handleDeleteItem = async () => {
+    if (!itemToDelete?.id) return;
+    await db.debtsAndLoans.delete(itemToDelete.id);
+    setItemToDelete(null);
   };
 
   const handleOpenPayment = (item: DebtOrLoan) => {
@@ -224,16 +298,16 @@ export default function TontinesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">Prêts Bancaires & Tontines</h1>
-            <p className="text-xs text-slate-500">Calcul automatique des mensualités & suivi des crédits</p>
+            <p className="text-xs text-slate-500">Ajoutez, modifiez ou supprimez vos crédits et cotisations</p>
           </div>
 
           <button
             type="button"
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={handleOpenAdd}
             className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-2xs active:scale-98"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Nouveau prêt / suivi</span>
+            <span>Nouveau suivi</span>
           </button>
         </div>
 
@@ -335,11 +409,11 @@ export default function TontinesPage() {
           </button>
         </div>
 
-        {/* Active Items List */}
+        {/* Active Items List with EDIT and DELETE buttons */}
         {activeItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-8 text-center text-xs text-slate-400 space-y-2">
             <Landmark className="h-7 w-7 mx-auto text-slate-300" />
-            <p>Aucun prêt bancaire, crédit ou tontine actif dans cette catégorie.</p>
+            <p>Aucun suivi actif dans cette catégorie.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -388,13 +462,34 @@ export default function TontinesPage() {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleOpenPayment(item)}
-                      className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-purple-50 hover:text-purple-700 transition"
-                    >
-                      {item.type === 'bank_loan' ? '+ Mensualité' : '+ Verser'}
-                    </button>
+                    {/* Actions : Verser, Modifier, Supprimer */}
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPayment(item)}
+                        className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-purple-50 hover:text-purple-700 transition"
+                      >
+                        {item.type === 'bank_loan' ? '+ Mensualité' : '+ Verser'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(item)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        title="Modifier ce prêt / suivi"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setItemToDelete(item)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 transition"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Progress bar */}
@@ -445,10 +540,20 @@ export default function TontinesPage() {
                     </p>
                   </div>
 
-                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <CheckCircle2 className="h-3 w-3" />
-                    <span>Soldé</span>
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>Soldé</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setItemToDelete(s)}
+                      className="p-1 text-slate-400 hover:text-rose-600 transition"
+                      title="Supprimer des archives"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -456,12 +561,14 @@ export default function TontinesPage() {
         )}
       </main>
 
-      {/* Add Entry Modal */}
+      {/* Add / Edit Entry Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold">Nouveau prêt ou suivi</h2>
+              <h2 className="text-base font-bold">
+                {editingItem ? 'Modifier le suivi financier' : 'Nouveau prêt ou suivi'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
@@ -471,46 +578,48 @@ export default function TontinesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateEntry} className="space-y-3 text-xs">
-              {/* Type selector */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-2xl bg-slate-100 dark:bg-slate-800 p-1">
-                <button
-                  type="button"
-                  onClick={() => setEntryType('bank_loan')}
-                  className={`py-1.5 rounded-xl font-bold transition text-center ${
-                    entryType === 'bank_loan' ? 'bg-white dark:bg-slate-700 text-purple-700 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  Prêt Bancaire
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEntryType('tontine')}
-                  className={`py-1.5 rounded-xl font-bold transition text-center ${
-                    entryType === 'tontine' ? 'bg-white dark:bg-slate-700 text-emerald-700 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  Tontine
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEntryType('lent')}
-                  className={`py-1.5 rounded-xl font-bold transition text-center ${
-                    entryType === 'lent' ? 'bg-white dark:bg-slate-700 text-blue-700 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  Prêt accordé
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEntryType('borrowed')}
-                  className={`py-1.5 rounded-xl font-bold transition text-center ${
-                    entryType === 'borrowed' ? 'bg-white dark:bg-slate-700 text-rose-700 shadow-xs' : 'text-slate-500'
-                  }`}
-                >
-                  Dette due
-                </button>
-              </div>
+            <form onSubmit={handleSaveEntry} className="space-y-3 text-xs">
+              {/* Type selector (only if new) */}
+              {!editingItem && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-2xl bg-slate-100 dark:bg-slate-800 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setEntryType('bank_loan')}
+                    className={`py-1.5 rounded-xl font-bold transition text-center ${
+                      entryType === 'bank_loan' ? 'bg-white dark:bg-slate-700 text-purple-700 shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    Prêt Bancaire
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryType('tontine')}
+                    className={`py-1.5 rounded-xl font-bold transition text-center ${
+                      entryType === 'tontine' ? 'bg-white dark:bg-slate-700 text-emerald-700 shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    Tontine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryType('lent')}
+                    className={`py-1.5 rounded-xl font-bold transition text-center ${
+                      entryType === 'lent' ? 'bg-white dark:bg-slate-700 text-blue-700 shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    Prêt accordé
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEntryType('borrowed')}
+                    className={`py-1.5 rounded-xl font-bold transition text-center ${
+                      entryType === 'borrowed' ? 'bg-white dark:bg-slate-700 text-rose-700 shadow-xs' : 'text-slate-500'
+                    }`}
+                  >
+                    Dette due
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">
@@ -749,7 +858,7 @@ export default function TontinesPage() {
                 type="submit"
                 className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold hover:bg-purple-700 transition mt-2 shadow-sm"
               >
-                Enregistrer le prêt bancaire
+                {editingItem ? 'Enregistrer les modifications' : 'Enregistrer le prêt bancaire'}
               </button>
             </form>
           </div>
@@ -800,6 +909,39 @@ export default function TontinesPage() {
                 Confirmer le versement
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold">Supprimer ce suivi ?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Voulez-vous vraiment supprimer définitivement <strong>&quot;{itemToDelete.title}&quot;</strong> ?
+              </p>
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteItem}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
+              >
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}

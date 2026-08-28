@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, applyRecurringItemsForMonth } from '@/lib/db';
 import { getCurrentMonth, calculateMonthlyStats } from '@/lib/kakebo-engine';
-import { type KakeiboPillar, PILLARS_CONFIG } from '@/types/kakebo';
+import { type KakeiboPillar, type Transaction, PILLARS_CONFIG } from '@/types/kakebo';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { BudgetOverview } from '@/components/kakebo/BudgetOverview';
@@ -29,6 +29,8 @@ import {
   Handshake,
   Landmark,
   Target,
+  Pencil,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,6 +48,14 @@ export default function DashboardPage() {
   const [currentMonth, setCurrentMonth] = useState<string>(getCurrentMonth());
   const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false);
   const [isMonthSetupOpen, setIsMonthSetupOpen] = useState<boolean>(false);
+
+  // Edit transaction modal state
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [editPillar, setEditPillar] = useState<KakeiboPillar>('needs');
+  const [editCategory, setEditCategory] = useState<string>('');
+  const [editDate, setEditDate] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
 
   // Apply recurring items automatically when month is viewed
   useEffect(() => {
@@ -65,6 +75,35 @@ export default function DashboardPage() {
 
   const stats = calculateMonthlyStats(budget, transactions);
   const recentTransactions = transactions.slice(0, 5);
+
+  const handleOpenEdit = (t: Transaction) => {
+    setEditingTransaction(t);
+    setEditAmount(String(t.amount));
+    setEditPillar(t.pillar || 'needs');
+    setEditCategory(t.category);
+    setEditDate(t.date);
+    setEditDescription(t.description || '');
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTransaction?.id) return;
+    const numAmt = parseFloat(editAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
+    if (numAmt <= 0) return;
+
+    const newMonth = editDate.substring(0, 7);
+
+    await db.transactions.update(editingTransaction.id, {
+      amount: numAmt,
+      pillar: editingTransaction.type === 'expense' ? editPillar : undefined,
+      category: editCategory.trim(),
+      date: editDate,
+      month: newMonth,
+      description: editDescription.trim() || undefined,
+    });
+
+    setEditingTransaction(null);
+  };
 
   const handleDeleteTransaction = async (id?: number) => {
     if (!id) return;
@@ -223,14 +262,22 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-1.5">
                       <span
-                        className={`text-xs font-bold ${
+                        className={`text-xs font-bold mr-1 ${
                           isExpense ? 'text-slate-900 dark:text-slate-100' : 'text-emerald-600 dark:text-emerald-400'
                         }`}
                       >
                         {isExpense ? '-' : '+'} {formatCurrency(t.amount, currency)}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEdit(t)}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                        title="Modifier"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleDeleteTransaction(t.id)}
@@ -259,6 +306,93 @@ export default function DashboardPage() {
           </p>
         </section>
       </main>
+
+      {/* Edit Transaction Modal */}
+      {editingTransaction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-base font-bold">Modifier l&apos;opération</h2>
+              <button
+                type="button"
+                onClick={() => setEditingTransaction(null)}
+                className="p-1 text-slate-400 hover:text-slate-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="space-y-3 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Montant ({currency})</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  required
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-extrabold text-lg text-center focus:border-emerald-500"
+                />
+              </div>
+
+              {editingTransaction.type === 'expense' && (
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Pilier Kakeibo</label>
+                  <select
+                    value={editPillar}
+                    onChange={(e) => setEditPillar(e.target.value as KakeiboPillar)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium"
+                  >
+                    <option value="needs">Besoins essentiels</option>
+                    <option value="wants">Envies & Plaisirs</option>
+                    <option value="culture">Culture & Formation</option>
+                    <option value="unexpected">Imprévus & Extras</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Catégorie</label>
+                <input
+                  type="text"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Date</label>
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Note / Marchand (optionnel)</label>
+                <input
+                  type="text"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition mt-2 shadow-sm"
+              >
+                Enregistrer les modifications
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Floating Modals */}
       <QuickAddModal

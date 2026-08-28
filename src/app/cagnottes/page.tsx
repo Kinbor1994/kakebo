@@ -26,6 +26,8 @@ import {
   Trophy,
   Trash2,
   X,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 
 const GOAL_ICONS: Record<SavingsGoal['iconKey'], React.ComponentType<{ className?: string }>> = {
@@ -39,6 +41,17 @@ const GOAL_ICONS: Record<SavingsGoal['iconKey'], React.ComponentType<{ className
   Sun,
 };
 
+const COLOR_OPTIONS = [
+  '#059669', // Emerald
+  '#2563EB', // Blue
+  '#7C3AED', // Purple
+  '#DB2777', // Pink
+  '#EA580C', // Orange
+  '#D97706', // Amber
+  '#0D9488', // Teal
+  '#4B5563', // Gray
+];
+
 export default function CagnottesPage() {
   const { isLocked, userSettings } = useSecurity();
   const currency = userSettings?.currency || 'XOF';
@@ -47,8 +60,11 @@ export default function CagnottesPage() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false);
   const [isMonthSetupOpen, setIsMonthSetupOpen] = useState<boolean>(false);
 
-  // New goal modal state
+  // New / Edit goal modal state
   const [isNewGoalOpen, setIsNewGoalOpen] = useState<boolean>(false);
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+
+  // Form states
   const [title, setTitle] = useState<string>('');
   const [targetAmount, setTargetAmount] = useState<string>('');
   const [currentAmount, setCurrentAmount] = useState<string>('0');
@@ -61,33 +77,66 @@ export default function CagnottesPage() {
   const [adjustAmount, setAdjustAmount] = useState<string>('');
   const [adjustType, setAdjustType] = useState<'deposit' | 'withdraw'>('deposit');
 
+  // Delete confirmation state
+  const [goalToDelete, setGoalToDelete] = useState<SavingsGoal | null>(null);
+
   const goals = useLiveQuery(() => db.savingsGoals.toArray()) || [];
 
   const totalTarget = goals.reduce((sum, g) => sum + g.targetAmount, 0);
   const totalSaved = goals.reduce((sum, g) => sum + g.currentAmount, 0);
   const overallPercentage = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
 
-  const handleCreateGoal = async (e: React.FormEvent) => {
+  const handleOpenNewGoal = () => {
+    setEditingGoal(null);
+    setTitle('');
+    setTargetAmount('');
+    setCurrentAmount('0');
+    setDeadline('');
+    setSelectedIcon('Target');
+    setSelectedColor('#059669');
+    setIsNewGoalOpen(true);
+  };
+
+  const handleOpenEditGoal = (goal: SavingsGoal) => {
+    setEditingGoal(goal);
+    setTitle(goal.title);
+    setTargetAmount(String(goal.targetAmount));
+    setCurrentAmount(String(goal.currentAmount));
+    setDeadline(goal.deadline || '');
+    setSelectedIcon(goal.iconKey);
+    setSelectedColor(goal.colorHex);
+    setIsNewGoalOpen(true);
+  };
+
+  const handleSaveGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     const numTarget = parseFloat(targetAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
     const numCurrent = parseFloat(currentAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
     if (!title.trim() || numTarget <= 0) return;
 
-    await db.savingsGoals.add({
-      title: title.trim(),
-      targetAmount: numTarget,
-      currentAmount: numCurrent,
-      deadline: deadline || undefined,
-      iconKey: selectedIcon,
-      colorHex: selectedColor,
-      createdAt: new Date().toISOString(),
-    });
+    if (editingGoal && editingGoal.id) {
+      await db.savingsGoals.update(editingGoal.id, {
+        title: title.trim(),
+        targetAmount: numTarget,
+        currentAmount: numCurrent,
+        deadline: deadline || undefined,
+        iconKey: selectedIcon,
+        colorHex: selectedColor,
+      });
+    } else {
+      await db.savingsGoals.add({
+        title: title.trim(),
+        targetAmount: numTarget,
+        currentAmount: numCurrent,
+        deadline: deadline || undefined,
+        iconKey: selectedIcon,
+        colorHex: selectedColor,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
-    setTitle('');
-    setTargetAmount('');
-    setCurrentAmount('0');
-    setDeadline('');
     setIsNewGoalOpen(false);
+    setEditingGoal(null);
   };
 
   const handleAdjustFunds = async (e: React.FormEvent) => {
@@ -101,10 +150,9 @@ export default function CagnottesPage() {
         ? activeGoalForAdjust.currentAmount + numAmt
         : Math.max(0, activeGoalForAdjust.currentAmount - numAmt);
 
-    await db.savingsGoals.update(activeGoalForAdjust.id, {
-      currentAmount: newAmount,
-    });
+    await db.savingsGoals.update(activeGoalForAdjust.id, { currentAmount: newAmount });
 
+    // Trigger celebration if goal reached with this deposit
     if (adjustType === 'deposit' && newAmount >= activeGoalForAdjust.targetAmount) {
       confetti({
         particleCount: 100,
@@ -117,9 +165,10 @@ export default function CagnottesPage() {
     setActiveGoalForAdjust(null);
   };
 
-  const handleDeleteGoal = async (id?: number) => {
-    if (!id) return;
-    await db.savingsGoals.delete(id);
+  const handleDeleteGoal = async () => {
+    if (!goalToDelete?.id) return;
+    await db.savingsGoals.delete(goalToDelete.id);
+    setGoalToDelete(null);
   };
 
   if (isLocked) {
@@ -135,17 +184,17 @@ export default function CagnottesPage() {
       />
 
       <main className="mx-auto max-w-xl px-4 pt-5 space-y-5">
-        {/* Title & Add Button */}
+        {/* Header Title */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Cagnottes & Projets</h1>
-            <p className="text-xs text-slate-500">Objectifs d&apos;épargne dédiés</p>
+            <h1 className="text-lg font-bold tracking-tight">Cagnottes d&apos;Épargne</h1>
+            <p className="text-xs text-slate-500">Ajoutez, modifiez ou supprimez vos projets financiers</p>
           </div>
 
           <button
             type="button"
-            onClick={() => setIsNewGoalOpen(true)}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-sm shadow-emerald-600/20 active:scale-98"
+            onClick={handleOpenNewGoal}
+            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-2xs active:scale-98"
           >
             <Plus className="h-4 w-4" />
             <span>Nouveau projet</span>
@@ -180,7 +229,7 @@ export default function CagnottesPage() {
           </div>
         </div>
 
-        {/* Goals List */}
+        {/* Goals List with EDIT and DELETE */}
         {goals.length === 0 ? (
           <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center space-y-3 shadow-xs">
             <Trophy className="h-9 w-9 mx-auto text-amber-500" />
@@ -192,7 +241,7 @@ export default function CagnottesPage() {
             </div>
             <button
               type="button"
-              onClick={() => setIsNewGoalOpen(true)}
+              onClick={handleOpenNewGoal}
               className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition"
             >
               <Plus className="h-4 w-4" />
@@ -236,7 +285,7 @@ export default function CagnottesPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1.5">
                       <button
                         type="button"
                         onClick={() => {
@@ -247,13 +296,23 @@ export default function CagnottesPage() {
                       >
                         + Alimenter
                       </button>
+
                       <button
                         type="button"
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 transition"
+                        onClick={() => handleOpenEditGoal(goal)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                        title="Modifier cette cagnotte"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setGoalToDelete(goal)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 transition"
                         title="Supprimer la cagnotte"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -285,12 +344,14 @@ export default function CagnottesPage() {
         )}
       </main>
 
-      {/* New Goal Modal */}
+      {/* New / Edit Goal Modal */}
       {isNewGoalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-base font-bold">Nouvelle Cagnotte</h2>
+              <h2 className="text-base font-bold">
+                {editingGoal ? 'Modifier la cagnotte' : 'Nouvelle Cagnotte'}
+              </h2>
               <button
                 type="button"
                 onClick={() => setIsNewGoalOpen(false)}
@@ -300,7 +361,7 @@ export default function CagnottesPage() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateGoal} className="space-y-3 text-xs">
+            <form onSubmit={handleSaveGoal} className="space-y-3 text-xs">
               <div className="space-y-1">
                 <label className="font-semibold text-slate-700 dark:text-slate-300">Titre du projet</label>
                 <input
@@ -321,71 +382,73 @@ export default function CagnottesPage() {
                     inputMode="numeric"
                     value={targetAmount}
                     onChange={(e) => setTargetAmount(e.target.value)}
-                    placeholder="250000"
+                    placeholder="300000"
                     required
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold focus:border-emerald-500"
                   />
                 </div>
+
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Déjà épargné ({currency})</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Épargne déjà disponible</label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={currentAmount}
                     onChange={(e) => setCurrentAmount(e.target.value)}
                     placeholder="0"
-                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
+                    className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Échéance souhaitée (optionnel)</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Date limite d&apos;atteinte (optionnel)</label>
                 <input
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
                 />
               </div>
 
-              {/* Icon Selector */}
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Icône</label>
-                <div className="flex space-x-2 overflow-x-auto pb-1">
-                  {(['Target', 'Shield', 'Compass', 'Home', 'Car', 'Heart', 'Laptop', 'Sun'] as SavingsGoal['iconKey'][]).map((iKey) => {
-                    const IconComp = GOAL_ICONS[iKey];
+              {/* Icon selector */}
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Choisir une icône</label>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(GOAL_ICONS) as Array<SavingsGoal['iconKey']>).map((iconKey) => {
+                    const Icon = GOAL_ICONS[iconKey];
+                    const isSelected = selectedIcon === iconKey;
                     return (
                       <button
-                        key={iKey}
+                        key={iconKey}
                         type="button"
-                        onClick={() => setSelectedIcon(iKey)}
-                        className={`p-2 rounded-xl border transition ${
-                          selectedIcon === iKey
-                            ? 'border-emerald-600 bg-emerald-600 text-white shadow-xs'
-                            : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600'
+                        onClick={() => setSelectedIcon(iconKey)}
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700'
+                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500'
                         }`}
                       >
-                        <IconComp className="h-4 w-4" />
+                        <Icon className="h-4 w-4" />
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Color Selector */}
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Couleur du projet</label>
-                <div className="flex space-x-2.5 pt-1">
-                  {['#059669', '#E11D48', '#D97706', '#2563EB', '#7C3AED', '#0891B2'].map((c) => (
+              {/* Color selector */}
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-700 dark:text-slate-300">Couleur d&apos;accent</label>
+                <div className="flex space-x-2">
+                  {COLOR_OPTIONS.map((hex) => (
                     <button
-                      key={c}
+                      key={hex}
                       type="button"
-                      onClick={() => setSelectedColor(c)}
-                      className={`h-7 w-7 rounded-full border-2 transition ${
-                        selectedColor === c ? 'scale-110 border-slate-900 dark:border-white shadow-sm' : 'border-transparent'
+                      onClick={() => setSelectedColor(hex)}
+                      className={`h-6 w-6 rounded-full transition-transform ${
+                        selectedColor === hex ? 'scale-125 ring-2 ring-emerald-500 ring-offset-2' : ''
                       }`}
-                      style={{ backgroundColor: c }}
+                      style={{ backgroundColor: hex }}
                     />
                   ))}
                 </div>
@@ -393,9 +456,9 @@ export default function CagnottesPage() {
 
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold mt-3 hover:bg-emerald-700 transition"
+                className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition mt-2 shadow-sm"
               >
-                Créer la cagnotte
+                {editingGoal ? 'Enregistrer les modifications' : 'Créer la cagnotte'}
               </button>
             </form>
           </div>
@@ -407,7 +470,10 @@ export default function CagnottesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
           <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h2 className="text-sm font-bold">{activeGoalForAdjust.title}</h2>
+              <div>
+                <h2 className="text-sm font-bold">Ajuster la cagnotte</h2>
+                <p className="text-[11px] text-slate-500">{activeGoalForAdjust.title}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setActiveGoalForAdjust(null)}
@@ -422,17 +488,21 @@ export default function CagnottesPage() {
                 <button
                   type="button"
                   onClick={() => setAdjustType('deposit')}
-                  className={`py-2 rounded-xl font-bold transition ${
-                    adjustType === 'deposit' ? 'bg-white dark:bg-slate-700 text-emerald-700 shadow-xs' : 'text-slate-500'
+                  className={`py-1.5 rounded-xl font-bold transition ${
+                    adjustType === 'deposit'
+                      ? 'bg-white dark:bg-slate-700 text-emerald-700 shadow-xs'
+                      : 'text-slate-500'
                   }`}
                 >
-                  + Ajouter des fonds
+                  + Verser
                 </button>
                 <button
                   type="button"
                   onClick={() => setAdjustType('withdraw')}
-                  className={`py-2 rounded-xl font-bold transition ${
-                    adjustType === 'withdraw' ? 'bg-white dark:bg-slate-700 text-rose-700 shadow-xs' : 'text-slate-500'
+                  className={`py-1.5 rounded-xl font-bold transition ${
+                    adjustType === 'withdraw'
+                      ? 'bg-white dark:bg-slate-700 text-rose-700 shadow-xs'
+                      : 'text-slate-500'
                   }`}
                 >
                   - Retirer
@@ -440,7 +510,9 @@ export default function CagnottesPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Montant ({currency})</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">
+                  Montant à {adjustType === 'deposit' ? 'verser' : 'retirer'} ({currency})
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -449,7 +521,7 @@ export default function CagnottesPage() {
                   placeholder="25000"
                   required
                   autoFocus
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden text-center text-xl font-extrabold focus:border-emerald-500"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold text-center text-xl focus:border-emerald-500"
                 />
               </div>
 
@@ -460,6 +532,39 @@ export default function CagnottesPage() {
                 Valider l&apos;opération
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {goalToDelete && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold">Supprimer cette cagnotte ?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Voulez-vous supprimer le projet <strong>&quot;{goalToDelete.title}&quot;</strong> ({formatCurrency(goalToDelete.currentAmount, currency)} épargnés) ?
+              </p>
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setGoalToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteGoal}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
+              >
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}

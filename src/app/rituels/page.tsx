@@ -165,18 +165,19 @@ export default function RituelsPage() {
         onOpenMonthSetup={() => setIsMonthSetupOpen(true)}
       />
 
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-6">
+      {/* Main Container */}
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-6">
         {/* Header Title */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Rituels & Pleine Conscience</h1>
-            <p className="text-xs text-slate-500">Délai de réflexion 48h & Défis d&apos;épargne</p>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight">Rituels & Pleine Conscience</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500">Délai de réflexion 48h & Défis d&apos;épargne</p>
           </div>
 
           <button
             type="button"
             onClick={handlePrintReport}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition shadow-2xs"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition shadow-2xs shrink-0"
             title="Imprimer le livret mensuel"
           >
             <Printer className="h-3.5 w-3.5" />

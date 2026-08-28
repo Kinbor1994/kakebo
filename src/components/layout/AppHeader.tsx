@@ -28,28 +28,28 @@ export function AppHeader({ currentMonth, onMonthChange, onOpenMonthSetup }: App
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 px-4 py-3 backdrop-blur-md shadow-xs">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-slate-900/90 px-3 py-2.5 sm:px-4 sm:py-3 backdrop-blur-md shadow-xs">
       {/* Brand & Logo */}
-      <div className="flex items-center space-x-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
-          <Wallet className="h-5 w-5 stroke-[2]" />
+      <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
+          <Wallet className="h-4 w-4 sm:h-5 sm:w-5 stroke-[2.2]" />
         </div>
-        <div>
-          <span className="text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">
+        <div className="hidden xs:block sm:block">
+          <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Kakeibo
           </span>
-          <span className="ml-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+          <span className="ml-1 text-[10px] sm:text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
             Budget
           </span>
         </div>
       </div>
 
       {/* Month Navigator */}
-      <div className="flex items-center space-x-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200/60 dark:border-slate-700/60">
+      <div className="flex items-center rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 sm:p-1 border border-slate-200/60 dark:border-slate-700/60 shrink-0">
         <button
           type="button"
           onClick={handlePrevMonth}
-          className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 transition"
+          className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 transition active:scale-95"
           aria-label="Mois précédent"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -58,17 +58,17 @@ export function AppHeader({ currentMonth, onMonthChange, onOpenMonthSetup }: App
         <button
           type="button"
           onClick={onOpenMonthSetup}
-          className="flex items-center space-x-1.5 px-2 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-emerald-600 transition"
+          className="flex items-center space-x-1 sm:space-x-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-emerald-600 transition truncate"
           title="Modifier le budget du mois"
         >
-          <Calendar className="h-3.5 w-3.5 text-slate-400" />
-          <span>{formatMonthLabel(currentMonth)}</span>
+          <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0 hidden xxs:inline sm:inline" />
+          <span className="capitalize">{formatMonthLabel(currentMonth)}</span>
         </button>
 
         <button
           type="button"
           onClick={handleNextMonth}
-          className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 transition"
+          className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white dark:hover:bg-slate-700 transition active:scale-95"
           aria-label="Mois suivant"
         >
           <ChevronRight className="h-4 w-4" />
@@ -76,12 +76,13 @@ export function AppHeader({ currentMonth, onMonthChange, onOpenMonthSetup }: App
       </div>
 
       {/* Actions */}
-      <div className="flex items-center space-x-1.5">
+      <div className="flex items-center space-x-0.5 sm:space-x-1 shrink-0">
         <button
           type="button"
           onClick={onOpenMonthSetup}
-          className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           title="Configurer le budget du mois"
+          aria-label="Configurer le budget"
         >
           <SlidersHorizontal className="h-4 w-4" />
         </button>
@@ -90,8 +91,9 @@ export function AppHeader({ currentMonth, onMonthChange, onOpenMonthSetup }: App
           <button
             type="button"
             onClick={lockNow}
-            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             title="Verrouiller l'application"
+            aria-label="Verrouiller"
           >
             <Lock className="h-4 w-4" />
           </button>

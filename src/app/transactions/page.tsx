@@ -128,18 +128,19 @@ export default function TransactionsPage() {
         onOpenMonthSetup={() => setIsMonthSetupOpen(true)}
       />
 
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-4">
+      {/* Main Container */}
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-3.5 sm:space-y-4">
         {/* Header Title & Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Journal des opérations</h1>
-            <p className="text-xs text-slate-500">{formatMonthLabel(currentMonth)} • Consultez, modifiez ou supprimez</p>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight">Journal des opérations</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500">{formatMonthLabel(currentMonth)} • Consultez, modifiez ou supprimez</p>
           </div>
 
           <button
             type="button"
             onClick={downloadTransactionsCSV}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition shadow-2xs"
+            className="flex items-center space-x-1 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 transition shadow-2xs shrink-0"
           >
             <Download className="h-3.5 w-3.5" />
             <span>Export CSV</span>

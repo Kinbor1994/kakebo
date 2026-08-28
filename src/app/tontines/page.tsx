@@ -293,18 +293,18 @@ export default function TontinesPage() {
         onOpenMonthSetup={() => setIsMonthSetupOpen(true)}
       />
 
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-5">
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-5">
         {/* Header Title */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Prêts Bancaires & Tontines</h1>
-            <p className="text-xs text-slate-500">Ajoutez, modifiez ou supprimez vos crédits et cotisations</p>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight">Prêts Bancaires & Tontines</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500">Ajoutez, modifiez ou supprimez vos crédits et cotisations</p>
           </div>
 
           <button
             type="button"
             onClick={handleOpenAdd}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-2xs active:scale-98"
+            className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 transition shadow-2xs active:scale-98 shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Nouveau suivi</span>

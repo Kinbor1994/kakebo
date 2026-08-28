@@ -73,11 +73,12 @@ export default function AnalysesPage() {
         onOpenMonthSetup={() => setIsMonthSetupOpen(true)}
       />
 
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-6">
+      {/* Main Container */}
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-6">
         {/* Title */}
         <div>
-          <h1 className="text-lg font-bold tracking-tight">Analyses & Graphiques</h1>
-          <p className="text-xs text-slate-500">{formatMonthLabel(currentMonth)} • Vue d&apos;ensemble analytique</p>
+          <h1 className="text-base sm:text-lg font-bold tracking-tight">Analyses & Graphiques</h1>
+          <p className="text-[11px] sm:text-xs text-slate-500">{formatMonthLabel(currentMonth)} • Vue d&apos;ensemble analytique</p>
         </div>
 
         {/* Donut Chart */}

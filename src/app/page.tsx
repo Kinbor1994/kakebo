@@ -124,7 +124,7 @@ export default function DashboardPage() {
       />
 
       {/* Main Container */}
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-6">
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-5">
         {/* Central Budget & Savings Overview */}
         <BudgetOverview
           stats={stats}
@@ -134,8 +134,8 @@ export default function DashboardPage() {
         />
 
         {/* 4 Kakeibo Pillars Grid */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
+        <section className="space-y-2.5">
+          <div className="flex flex-wrap items-baseline justify-between gap-1 px-0.5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Les 4 Piliers du Budget
             </h2>
@@ -144,7 +144,7 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
             {(['needs', 'wants', 'culture', 'unexpected'] as KakeiboPillar[]).map((pKey) => (
               <PillarCard
                 key={pKey}
@@ -160,55 +160,55 @@ export default function DashboardPage() {
         </section>
 
         {/* Quick Modules Navigation Grid */}
-        <section className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <Link
             href="/analyses"
-            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-1.5 group-hover:scale-110 transition">
-              <PieChart className="h-4 w-4 stroke-[2.2]" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 mb-1 group-hover:scale-110 transition">
+              <PieChart className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.2]" />
             </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Analyses</span>
-            <span className="text-[10px] text-slate-400">Graphiques & Zen</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200">Analyses</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400">Graphiques & Zen</span>
           </Link>
 
           <Link
             href="/rituels"
-            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-1.5 group-hover:scale-110 transition">
-              <Clock className="h-4 w-4 stroke-[2.2]" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600 mb-1 group-hover:scale-110 transition">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.2]" />
             </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Wishlist 48h</span>
-            <span className="text-[10px] text-slate-400">Achats différés</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200">Rituels 48h</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400">Achats conscients</span>
           </Link>
 
           <Link
             href="/tontines"
-            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-purple-300 transition text-center group"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-purple-300 transition text-center group"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 mb-1.5 group-hover:scale-110 transition">
-              <Landmark className="h-4 w-4 stroke-[2.2]" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-purple-50 text-purple-600 mb-1 group-hover:scale-110 transition">
+              <Landmark className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.2]" />
             </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Prêts Bancaires</span>
-            <span className="text-[10px] text-slate-400">Crédits & Tontines</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200">Prêts Bancaires</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400">Crédits & Tontines</span>
           </Link>
 
           <Link
             href="/cagnottes"
-            className="flex flex-col items-center justify-center p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
+            className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-xs hover:border-emerald-300 transition text-center group"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 mb-1.5 group-hover:scale-110 transition">
-              <Target className="h-4 w-4 stroke-[2.2]" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 mb-1 group-hover:scale-110 transition">
+              <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 stroke-[2.2]" />
             </div>
-            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Cagnottes</span>
-            <span className="text-[10px] text-slate-400">Projets d&apos;épargne</span>
+            <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-slate-200">Cagnottes</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400">Objectifs d&apos;épargne</span>
           </Link>
         </section>
 
         {/* Recent Transactions List */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Dernières dépenses
             </h2>
@@ -222,11 +222,11 @@ export default function DashboardPage() {
           </div>
 
           {recentTransactions.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-center text-xs text-slate-400">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 text-center text-xs text-slate-400">
               Aucune dépense enregistrée ce mois-ci. Touchez le bouton &quot;+&quot; pour ajouter un achat.
             </div>
           ) : (
-            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 shadow-xs">
+            <div className="rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800 shadow-xs overflow-hidden">
               {recentTransactions.map((t) => {
                 const isExpense = t.type === 'expense';
                 const pillarConfig = t.pillar ? PILLARS_CONFIG[t.pillar] : null;
@@ -235,19 +235,19 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition group"
+                    className="flex items-center justify-between p-3 sm:p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition group"
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2.5 min-w-0">
                       <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl border ${
+                        className={`flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl border ${
                           pillarConfig ? pillarConfig.badgeClass : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}
                       >
                         <Icon className="h-4 w-4" />
                       </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <div className="min-w-0">
+                        <div className="flex items-center space-x-1.5">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                             {t.category}
                           </p>
                           {t.isRecurring && (
@@ -256,13 +256,13 @@ export default function DashboardPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
                           {t.date} {t.description && `• ${t.description}`}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-1.5 shrink-0 ml-2">
                       <span
                         className={`text-xs font-bold mr-1 ${
                           isExpense ? 'text-slate-900 dark:text-slate-100' : 'text-emerald-600 dark:text-emerald-400'
@@ -273,7 +273,7 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(t)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition"
                         title="Modifier"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -281,7 +281,7 @@ export default function DashboardPage() {
                       <button
                         type="button"
                         onClick={() => handleDeleteTransaction(t.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-rose-600 transition"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 transition"
                         title="Supprimer"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

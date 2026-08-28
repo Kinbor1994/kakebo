@@ -129,19 +129,20 @@ export default function BilanPage() {
         onOpenMonthSetup={() => setIsMonthSetupOpen(true)}
       />
 
-      <main className="mx-auto max-w-xl px-4 pt-5 space-y-5">
+      {/* Main Container */}
+      <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-5">
         {/* Title */}
         <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center space-x-1.5 text-emerald-600 dark:text-emerald-400">
             <Compass className="h-4 w-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">
+            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider">
               Rituel d&apos;Introspection Kakeibo
             </span>
           </div>
-          <h1 className="text-lg font-bold tracking-tight">
+          <h1 className="text-base sm:text-lg font-bold tracking-tight">
             Bilan Réflexif — {formatMonthLabel(currentMonth)}
           </h1>
-          <p className="text-xs text-slate-500 leading-relaxed">
+          <p className="text-[11px] sm:text-xs text-slate-500 leading-relaxed">
             Le Kakeibo repose sur 4 questions clés pour comprendre ses flux d&apos;argent sans culpabilité et ajuster son épargne.
           </p>
         </div>

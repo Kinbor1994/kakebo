@@ -113,3 +113,43 @@ export function calculateMonthlyStats(
     weeklyBreakdown,
   };
 }
+
+/**
+ * Standard Bank Loan Monthly Amortization Formula:
+ * M = Principal * (r * (1 + r)^n) / ((1 + r)^n - 1)
+ * where r = annualInterestRate / 12 / 100, n = durationMonths
+ */
+export function calculateLoanMonthlyPayment(
+  principal: number,
+  annualInterestRate: number,
+  durationMonths: number
+): {
+  monthlyPayment: number;
+  totalPayment: number;
+  totalInterest: number;
+} {
+  if (principal <= 0 || durationMonths <= 0) {
+    return { monthlyPayment: 0, totalPayment: 0, totalInterest: 0 };
+  }
+
+  if (annualInterestRate <= 0) {
+    const monthly = Math.round(principal / durationMonths);
+    return {
+      monthlyPayment: monthly,
+      totalPayment: principal,
+      totalInterest: 0,
+    };
+  }
+
+  const monthlyRate = annualInterestRate / 100 / 12;
+  const factor = Math.pow(1 + monthlyRate, durationMonths);
+  const monthlyPayment = Math.round(principal * ((monthlyRate * factor) / (factor - 1)));
+  const totalPayment = monthlyPayment * durationMonths;
+  const totalInterest = Math.max(0, totalPayment - principal);
+
+  return {
+    monthlyPayment,
+    totalPayment,
+    totalInterest,
+  };
+}

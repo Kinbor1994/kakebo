@@ -205,8 +205,10 @@ export interface DebtOrLoan {
   contactName: string;          // Nom de la banque (BOA, Ecobank...) ou contact
   totalAmount: number;          // Montant total du capital emprunté
   paidAmount: number;           // Montant déjà remboursé (amorti)
-  monthlyPayment?: number;      // Mensualité fixe en F CFA
+  monthlyPayment?: number;      // Mensualité fixe calculée automatiquement
+  durationMonths?: number;      // Durée en nombre de mois
   interestRate?: number;        // Taux d'intérêt annuel en %
+  totalInterest?: number;       // Coût total des intérêts calculé
   dueDate?: string;             // Date d'échéance de fin (YYYY-MM-DD)
   dayOfMonth?: number;          // 1-31 (jour de prélèvement de la mensualité)
   notes?: string;

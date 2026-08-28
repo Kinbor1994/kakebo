@@ -5,6 +5,9 @@ import {
   type Reflection,
   type SavingsGoal,
   type RecurringItem,
+  type WishlistItem,
+  type DebtOrLoan,
+  type SavingsChallenge,
   type UserSettings,
 } from '@/types/kakebo';
 
@@ -18,6 +21,9 @@ export interface BackupData {
     reflections: Reflection[];
     savingsGoals: SavingsGoal[];
     recurringItems: RecurringItem[];
+    wishlistItems?: WishlistItem[];
+    debtsAndLoans?: DebtOrLoan[];
+    savingsChallenges?: SavingsChallenge[];
     userSettings: UserSettings[];
   };
 }
@@ -29,6 +35,9 @@ export async function createBackupJSON(): Promise<string> {
     reflections,
     savingsGoals,
     recurringItems,
+    wishlistItems,
+    debtsAndLoans,
+    savingsChallenges,
     userSettings,
   ] = await Promise.all([
     db.monthlyBudgets.toArray(),
@@ -36,11 +45,14 @@ export async function createBackupJSON(): Promise<string> {
     db.reflections.toArray(),
     db.savingsGoals.toArray(),
     db.recurringItems.toArray(),
+    db.wishlistItems.toArray(),
+    db.debtsAndLoans.toArray(),
+    db.savingsChallenges.toArray(),
     db.userSettings.toArray(),
   ]);
 
   const backup: BackupData = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     app: 'kakeibo',
     data: {
@@ -49,6 +61,9 @@ export async function createBackupJSON(): Promise<string> {
       reflections,
       savingsGoals,
       recurringItems,
+      wishlistItems,
+      debtsAndLoans,
+      savingsChallenges,
       userSettings,
     },
   };
@@ -85,6 +100,9 @@ export async function restoreBackupJSON(jsonString: string): Promise<boolean> {
         db.reflections,
         db.savingsGoals,
         db.recurringItems,
+        db.wishlistItems,
+        db.debtsAndLoans,
+        db.savingsChallenges,
         db.userSettings,
       ],
       async () => {
@@ -95,6 +113,9 @@ export async function restoreBackupJSON(jsonString: string): Promise<boolean> {
           db.reflections.clear(),
           db.savingsGoals.clear(),
           db.recurringItems.clear(),
+          db.wishlistItems.clear(),
+          db.debtsAndLoans.clear(),
+          db.savingsChallenges.clear(),
           db.userSettings.clear(),
         ]);
 
@@ -113,6 +134,15 @@ export async function restoreBackupJSON(jsonString: string): Promise<boolean> {
         }
         if (parsed.data.recurringItems?.length) {
           await db.recurringItems.bulkAdd(parsed.data.recurringItems);
+        }
+        if (parsed.data.wishlistItems?.length) {
+          await db.wishlistItems.bulkAdd(parsed.data.wishlistItems);
+        }
+        if (parsed.data.debtsAndLoans?.length) {
+          await db.debtsAndLoans.bulkAdd(parsed.data.debtsAndLoans);
+        }
+        if (parsed.data.savingsChallenges?.length) {
+          await db.savingsChallenges.bulkAdd(parsed.data.savingsChallenges);
         }
         if (parsed.data.userSettings?.length) {
           await db.userSettings.bulkAdd(parsed.data.userSettings);

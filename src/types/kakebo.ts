@@ -181,12 +181,57 @@ export interface RecurringItem {
   createdAt: string;
 }
 
+// Module Wishlist 48h (Liste de réflexion pour achats non essentiels)
+export interface WishlistItem {
+  id?: number;
+  title: string;
+  amount: number;
+  pillar: KakeiboPillar;
+  category: string;
+  createdAt: string;            // ISO String
+  reflectionExpiresAt: string;  // createdAt + 48h (ISO String)
+  status: 'pending' | 'bought' | 'abandoned';
+  notes?: string;
+}
+
+// Module Dettes, Créances & Tontines
+export type DebtLoanType = 'lent' | 'borrowed' | 'tontine';
+
+export interface DebtOrLoan {
+  id?: number;
+  type: DebtLoanType;
+  title: string;
+  contactName: string;
+  totalAmount: number;
+  paidAmount: number;
+  dueDate?: string;             // YYYY-MM-DD
+  dayOfMonth?: number;          // 1-31 (pour tontines)
+  notes?: string;
+  status: 'active' | 'settled';
+  createdAt: string;
+}
+
+// Module Défis d'épargne (No Spend Days, etc.)
+export interface SavingsChallenge {
+  id?: number;
+  type: 'no_spend' | '52_weeks' | 'custom';
+  title: string;
+  description: string;
+  targetCount: number;
+  currentCount: number;
+  month: string;                // YYYY-MM
+  status: 'active' | 'completed';
+  createdAt: string;
+}
+
 export interface UserSettings {
   id?: number;
   currency: string;
   isPinEnabled: boolean;
   pinHash?: string;
   pinSalt?: string;
+  isBiometricEnabled?: boolean;
+  biometricCredentialId?: string;
   autoLockMinutes: number;
   userName?: string;
   theme: 'light' | 'dark' | 'system';

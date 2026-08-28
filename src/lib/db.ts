@@ -5,6 +5,9 @@ import {
   type Reflection,
   type SavingsGoal,
   type RecurringItem,
+  type WishlistItem,
+  type DebtOrLoan,
+  type SavingsChallenge,
   type UserSettings,
   PILLARS_CONFIG,
   DEFAULT_INCOME_CATEGORIES,
@@ -16,6 +19,9 @@ export class KakeiboDatabase extends Dexie {
   reflections!: Table<Reflection, number>;
   savingsGoals!: Table<SavingsGoal, number>;
   recurringItems!: Table<RecurringItem, number>;
+  wishlistItems!: Table<WishlistItem, number>;
+  debtsAndLoans!: Table<DebtOrLoan, number>;
+  savingsChallenges!: Table<SavingsChallenge, number>;
   userSettings!: Table<UserSettings, number>;
 
   constructor() {
@@ -27,6 +33,18 @@ export class KakeiboDatabase extends Dexie {
       reflections: '++id, &periodKey, periodType, month, createdAt',
       savingsGoals: '++id, title, deadline, createdAt',
       recurringItems: '++id, type, pillar, dayOfMonth, isActive',
+      userSettings: '++id',
+    });
+
+    this.version(2).stores({
+      monthlyBudgets: '++id, &month, createdAt',
+      transactions: '++id, month, date, type, pillar, category, savingsGoalId, createdAt',
+      reflections: '++id, &periodKey, periodType, month, createdAt',
+      savingsGoals: '++id, title, deadline, createdAt',
+      recurringItems: '++id, type, pillar, dayOfMonth, isActive',
+      wishlistItems: '++id, status, pillar, createdAt',
+      debtsAndLoans: '++id, type, status, dueDate, createdAt',
+      savingsChallenges: '++id, month, type, status',
       userSettings: '++id',
     });
   }

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const viewport: Viewport = {
-  themeColor: '#1C1F1D',
+  themeColor: '#059669',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -23,8 +23,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Kakeibo — Gestion Zen & Finances Personnelles',
-  description: 'Application Kakeibo pour maîtriser son budget, ses 4 piliers de dépenses et son épargne de façon sereine et privée.',
+  title: 'Kakeibo — Finances Zen & Gestion Personnelle',
+  description: 'Application Kakeibo pour maîtriser son budget, ses 4 piliers de dépenses et son épargne en F CFA.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -45,9 +45,13 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-[#FAF9F5] dark:bg-[#141615] text-stone-900 dark:text-stone-100 selection:bg-stone-900 selection:text-white">
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col bg-[#F8F9FA] dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+      >
         <SecurityProvider>
           {children}
           <PwaRegister />

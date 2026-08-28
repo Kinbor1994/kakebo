@@ -194,18 +194,20 @@ export interface WishlistItem {
   notes?: string;
 }
 
-// Module Dettes, Créances & Tontines
-export type DebtLoanType = 'lent' | 'borrowed' | 'tontine';
+// Module Dettes, Créances, Tontines & Prêts Bancaires
+export type DebtLoanType = 'lent' | 'borrowed' | 'tontine' | 'bank_loan';
 
 export interface DebtOrLoan {
   id?: number;
   type: DebtLoanType;
   title: string;
-  contactName: string;
-  totalAmount: number;
-  paidAmount: number;
-  dueDate?: string;             // YYYY-MM-DD
-  dayOfMonth?: number;          // 1-31 (pour tontines)
+  contactName: string;          // Nom du contact ou établissement bancaire (ex: Ecobank, BOA...)
+  totalAmount: number;          // Montant total du capital ou de la dette
+  paidAmount: number;           // Montant déjà remboursé (amorti)
+  monthlyPayment?: number;      // Mensualité régulière
+  interestRate?: number;        // Taux d'intérêt annuel en %
+  dueDate?: string;             // Date d'échéance finale (YYYY-MM-DD)
+  dayOfMonth?: number;          // 1-31 (jour de prélèvement ou de cotisation)
   notes?: string;
   status: 'active' | 'settled';
   createdAt: string;

@@ -15,17 +15,11 @@ import { formatCurrency } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import {
   Handshake,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Users,
+  Landmark,
   Plus,
-  Trash2,
   CheckCircle2,
   X,
-  Calendar,
-  DollarSign,
-  TrendingDown,
-  TrendingUp,
+  Percent,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -37,16 +31,18 @@ export default function TontinesPage() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false);
   const [isMonthSetupOpen, setIsMonthSetupOpen] = useState<boolean>(false);
 
-  // Filter tabs: 'all' | 'tontine' | 'lent' | 'borrowed'
+  // Filter tabs: 'all' | 'tontine' | 'bank_loan' | 'lent' | 'borrowed'
   const [activeTab, setActiveTab] = useState<'all' | DebtLoanType>('all');
 
   // New entry modal
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
-  const [entryType, setEntryType] = useState<DebtLoanType>('tontine');
+  const [entryType, setEntryType] = useState<DebtLoanType>('bank_loan');
   const [title, setTitle] = useState<string>('');
   const [contactName, setContactName] = useState<string>('');
   const [totalAmount, setTotalAmount] = useState<string>('');
   const [paidAmount, setPaidAmount] = useState<string>('0');
+  const [monthlyPayment, setMonthlyPayment] = useState<string>('');
+  const [interestRate, setInterestRate] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [dayOfMonth, setDayOfMonth] = useState<number>(5);
   const [notes, setNotes] = useState<string>('');
@@ -63,7 +59,15 @@ export default function TontinesPage() {
 
   const settledItems = debtsAndLoans.filter((item) => item.status === 'settled');
 
-  // Aggregate sums
+  // Aggregate totals
+  const totalBankLoansRemaining = debtsAndLoans
+    .filter((d) => d.type === 'bank_loan' && d.status === 'active')
+    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+
+  const totalTontineRemaining = debtsAndLoans
+    .filter((d) => d.type === 'tontine' && d.status === 'active')
+    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+
   const totalLentRemaining = debtsAndLoans
     .filter((d) => d.type === 'lent' && d.status === 'active')
     .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
@@ -72,24 +76,25 @@ export default function TontinesPage() {
     .filter((d) => d.type === 'borrowed' && d.status === 'active')
     .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
 
-  const totalTontineRemaining = debtsAndLoans
-    .filter((d) => d.type === 'tontine' && d.status === 'active')
-    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
-
   const handleCreateEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     const numTotal = parseFloat(totalAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
     const numPaid = parseFloat(paidAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
+    const numMonthly = parseFloat(monthlyPayment.replace(/\s+/g, '').replace(',', '.')) || undefined;
+    const numInterest = parseFloat(interestRate.replace(/\s+/g, '').replace(',', '.')) || undefined;
+
     if (!title.trim() || numTotal <= 0) return;
 
     await db.debtsAndLoans.add({
       type: entryType,
       title: title.trim(),
-      contactName: contactName.trim() || 'Non spécifié',
+      contactName: contactName.trim() || (entryType === 'bank_loan' ? 'Établissement Bancaire' : 'Non spécifié'),
       totalAmount: numTotal,
       paidAmount: numPaid,
+      monthlyPayment: numMonthly,
+      interestRate: numInterest,
       dueDate: dueDate || undefined,
-      dayOfMonth: entryType === 'tontine' ? dayOfMonth : undefined,
+      dayOfMonth: entryType === 'tontine' || entryType === 'bank_loan' ? dayOfMonth : undefined,
       notes: notes.trim() || undefined,
       status: numPaid >= numTotal ? 'settled' : 'active',
       createdAt: new Date().toISOString(),
@@ -99,9 +104,20 @@ export default function TontinesPage() {
     setContactName('');
     setTotalAmount('');
     setPaidAmount('0');
+    setMonthlyPayment('');
+    setInterestRate('');
     setDueDate('');
     setNotes('');
     setIsAddModalOpen(false);
+  };
+
+  const handleOpenPayment = (item: DebtOrLoan) => {
+    setActiveItemForPayment(item);
+    if (item.monthlyPayment) {
+      setPaymentAmount(String(item.monthlyPayment));
+    } else {
+      setPaymentAmount('');
+    }
   };
 
   const handleRecordPayment = async (e: React.FormEvent) => {
@@ -118,17 +134,28 @@ export default function TontinesPage() {
       status: isNowSettled ? 'settled' : 'active',
     });
 
-    // Optionally record as a transaction in Kakeibo
+    // Automatically record as an expense transaction in Kakeibo
     const now = new Date();
-    if (activeItemForPayment.type === 'borrowed' || activeItemForPayment.type === 'tontine') {
+    if (
+      activeItemForPayment.type === 'bank_loan' ||
+      activeItemForPayment.type === 'borrowed' ||
+      activeItemForPayment.type === 'tontine'
+    ) {
+      const categoryName =
+        activeItemForPayment.type === 'bank_loan'
+          ? 'Prêt Bancaire & Crédit'
+          : activeItemForPayment.type === 'tontine'
+          ? 'Tontine'
+          : 'Remboursement dette';
+
       await db.transactions.add({
         month: format(now, 'yyyy-MM'),
         date: format(now, 'yyyy-MM-dd'),
         amount: numPay,
         type: 'expense',
-        pillar: activeItemForPayment.type === 'tontine' ? 'needs' : 'unexpected',
-        category: activeItemForPayment.type === 'tontine' ? 'Tontine' : 'Remboursement dette',
-        description: `Versement : ${activeItemForPayment.title}`,
+        pillar: activeItemForPayment.type === 'bank_loan' || activeItemForPayment.type === 'tontine' ? 'needs' : 'unexpected',
+        category: categoryName,
+        description: `Remboursement : ${activeItemForPayment.title} (${activeItemForPayment.contactName})`,
         createdAt: now.toISOString(),
       });
     }
@@ -143,11 +170,6 @@ export default function TontinesPage() {
 
     setPaymentAmount('');
     setActiveItemForPayment(null);
-  };
-
-  const handleDeleteEntry = async (id?: number) => {
-    if (!id) return;
-    await db.debtsAndLoans.delete(id);
   };
 
   if (isLocked) {
@@ -166,8 +188,8 @@ export default function TontinesPage() {
         {/* Header Title */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Tontines & Prêts</h1>
-            <p className="text-xs text-slate-500">Suivi des cotisations, créances et remboursements</p>
+            <h1 className="text-lg font-bold tracking-tight">Prêts, Crédits & Tontines</h1>
+            <p className="text-xs text-slate-500">Suivi des prêts bancaires, cotisations et créances</p>
           </div>
 
           <button
@@ -180,8 +202,17 @@ export default function TontinesPage() {
           </button>
         </div>
 
-        {/* Global Summary Cards */}
-        <div className="grid grid-cols-3 gap-2.5">
+        {/* Global Summary Cards Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-2xs space-y-1">
+            <span className="text-[10px] font-bold uppercase text-purple-600 dark:text-purple-400 block truncate">
+              Prêts Bancaires
+            </span>
+            <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate">
+              {formatCurrency(totalBankLoansRemaining, currency)}
+            </p>
+          </div>
+
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-2xs space-y-1">
             <span className="text-[10px] font-bold uppercase text-emerald-600 block truncate">
               Tontines
@@ -193,7 +224,7 @@ export default function TontinesPage() {
 
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-2xs space-y-1">
             <span className="text-[10px] font-bold uppercase text-blue-600 block truncate">
-              Prêté à d&apos;autres
+              Prêté à des tiers
             </span>
             <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate">
               {formatCurrency(totalLentRemaining, currency)}
@@ -202,7 +233,7 @@ export default function TontinesPage() {
 
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-2xs space-y-1">
             <span className="text-[10px] font-bold uppercase text-rose-600 block truncate">
-              Emprunté
+              Dettes dues
             </span>
             <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-slate-100 truncate">
               {formatCurrency(totalBorrowedRemaining, currency)}
@@ -221,7 +252,18 @@ export default function TontinesPage() {
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
             }`}
           >
-            Tous les actifs ({debtsAndLoans.filter((d) => d.status === 'active').length})
+            Tous ({debtsAndLoans.filter((d) => d.status === 'active').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('bank_loan')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
+              activeTab === 'bank_loan'
+                ? 'bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            Prêts Bancaires ({debtsAndLoans.filter((d) => d.type === 'bank_loan' && d.status === 'active').length})
           </button>
           <button
             type="button"
@@ -261,8 +303,8 @@ export default function TontinesPage() {
         {/* Active Items List */}
         {activeItems.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-8 text-center text-xs text-slate-400 space-y-2">
-            <Handshake className="h-7 w-7 mx-auto text-slate-300" />
-            <p>Aucun suivi actif enregistré dans cette catégorie.</p>
+            <Landmark className="h-7 w-7 mx-auto text-slate-300" />
+            <p>Aucun prêt, crédit ou tontine actif dans cette catégorie.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -280,32 +322,42 @@ export default function TontinesPage() {
                       <div className="flex items-center space-x-2">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            item.type === 'tontine'
+                            item.type === 'bank_loan'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300'
+                              : item.type === 'tontine'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : item.type === 'lent'
                               ? 'bg-blue-50 text-blue-700 border border-blue-200'
                               : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                         >
-                          {item.type === 'tontine' ? 'Tontine' : item.type === 'lent' ? 'Prêté' : 'Emprunté'}
+                          {item.type === 'bank_loan'
+                            ? 'Prêt Bancaire'
+                            : item.type === 'tontine'
+                            ? 'Tontine'
+                            : item.type === 'lent'
+                            ? 'Prêté'
+                            : 'Emprunté'}
                         </span>
                         <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                           {item.title}
                         </h3>
                       </div>
                       <p className="text-[11px] text-slate-500">
-                        Contact / Groupe : <strong>{item.contactName}</strong>
+                        Établissement / Contact : <strong>{item.contactName}</strong>
+                        {item.monthlyPayment && ` • Mensualité : ${formatCurrency(item.monthlyPayment, currency)}`}
+                        {item.interestRate && ` • Taux : ${item.interestRate}%`}
+                        {item.dayOfMonth && ` • Prélèvement le ${item.dayOfMonth} du mois`}
                         {item.dueDate && ` • Échéance : ${item.dueDate}`}
-                        {item.dayOfMonth && ` • Cotisation le ${item.dayOfMonth} du mois`}
                       </p>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => setActiveItemForPayment(item)}
+                      onClick={() => handleOpenPayment(item)}
                       className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-emerald-50 hover:text-emerald-700 transition"
                     >
-                      + Verser
+                      {item.type === 'bank_loan' ? '+ Mensualité' : '+ Verser'}
                     </button>
                   </div>
 
@@ -313,17 +365,19 @@ export default function TontinesPage() {
                   <div className="space-y-1">
                     <div className="flex items-baseline justify-between text-xs font-semibold">
                       <span className="text-slate-500">
-                        Versé : {formatCurrency(item.paidAmount, currency)} ({progress}%)
+                        Remboursé : {formatCurrency(item.paidAmount, currency)} ({progress}%)
                       </span>
                       <span className="text-slate-900 dark:text-slate-100 font-extrabold">
-                        Reste : {formatCurrency(remaining, currency)}
+                        Capital restant : {formatCurrency(remaining, currency)}
                       </span>
                     </div>
 
                     <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          item.type === 'tontine'
+                          item.type === 'bank_loan'
+                            ? 'bg-purple-600'
+                            : item.type === 'tontine'
                             ? 'bg-emerald-600'
                             : item.type === 'lent'
                             ? 'bg-blue-600'
@@ -383,11 +437,20 @@ export default function TontinesPage() {
 
             <form onSubmit={handleCreateEntry} className="space-y-3 text-xs">
               {/* Type selector */}
-              <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 p-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 rounded-2xl bg-slate-100 dark:bg-slate-800 p-1">
+                <button
+                  type="button"
+                  onClick={() => setEntryType('bank_loan')}
+                  className={`py-1.5 rounded-xl font-bold transition text-center ${
+                    entryType === 'bank_loan' ? 'bg-white dark:bg-slate-700 text-purple-700 shadow-xs' : 'text-slate-500'
+                  }`}
+                >
+                  Prêt Bancaire
+                </button>
                 <button
                   type="button"
                   onClick={() => setEntryType('tontine')}
-                  className={`py-1.5 rounded-xl font-bold transition ${
+                  className={`py-1.5 rounded-xl font-bold transition text-center ${
                     entryType === 'tontine' ? 'bg-white dark:bg-slate-700 text-emerald-700 shadow-xs' : 'text-slate-500'
                   }`}
                 >
@@ -396,7 +459,7 @@ export default function TontinesPage() {
                 <button
                   type="button"
                   onClick={() => setEntryType('lent')}
-                  className={`py-1.5 rounded-xl font-bold transition ${
+                  className={`py-1.5 rounded-xl font-bold transition text-center ${
                     entryType === 'lent' ? 'bg-white dark:bg-slate-700 text-blue-700 shadow-xs' : 'text-slate-500'
                   }`}
                 >
@@ -405,33 +468,45 @@ export default function TontinesPage() {
                 <button
                   type="button"
                   onClick={() => setEntryType('borrowed')}
-                  className={`py-1.5 rounded-xl font-bold transition ${
+                  className={`py-1.5 rounded-xl font-bold transition text-center ${
                     entryType === 'borrowed' ? 'bg-white dark:bg-slate-700 text-rose-700 shadow-xs' : 'text-slate-500'
                   }`}
                 >
-                  Emprunt reçu
+                  Dette due
                 </button>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Intitulé</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">
+                  {entryType === 'bank_loan' ? 'Intitulé du crédit' : 'Intitulé'}
+                </label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ex: Tontine des amis, Prêt frangin..."
+                  placeholder={
+                    entryType === 'bank_loan'
+                      ? 'Ex: Crédit Immobilier, Prêt Auto, Prêt Travaux...'
+                      : 'Ex: Tontine des amis, Prêt frangin...'
+                  }
                   required
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">Nom du contact ou groupe</label>
+                <label className="font-semibold text-slate-700 dark:text-slate-300">
+                  {entryType === 'bank_loan' ? 'Banque ou Organisme prêteur' : 'Nom du contact ou groupe'}
+                </label>
                 <input
                   type="text"
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Ex: Paul, Association quartier..."
+                  placeholder={
+                    entryType === 'bank_loan'
+                      ? 'Ex: BOA, Ecobank, Société Générale, NSIA...'
+                      : 'Ex: Paul, Association quartier...'
+                  }
                   required
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-medium focus:border-emerald-500"
                 />
@@ -439,19 +514,21 @@ export default function TontinesPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Montant total ({currency})</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">
+                    {entryType === 'bank_loan' ? `Capital total (${currency})` : `Montant total (${currency})`}
+                  </label>
                   <input
                     type="text"
                     inputMode="numeric"
                     value={totalAmount}
                     onChange={(e) => setTotalAmount(e.target.value)}
-                    placeholder="100000"
+                    placeholder="5000000"
                     required
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold focus:border-emerald-500"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Déjà versé / remboursé</label>
+                  <label className="font-semibold text-slate-700 dark:text-slate-300">Déjà amorti / remboursé</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -463,17 +540,59 @@ export default function TontinesPage() {
                 </div>
               </div>
 
-              {entryType === 'tontine' ? (
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-700 dark:text-slate-300">Jour de cotisation mensuelle</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={dayOfMonth}
-                    onChange={(e) => setDayOfMonth(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
-                  />
+              {entryType === 'bank_loan' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">
+                      Mensualité ({currency})
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={monthlyPayment}
+                      onChange={(e) => setMonthlyPayment(e.target.value)}
+                      placeholder="125000"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-1">
+                      <Percent className="h-3 w-3" />
+                      <span>Taux d&apos;intérêt (%)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={interestRate}
+                      onChange={(e) => setInterestRate(e.target.value)}
+                      placeholder="7.5"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {entryType === 'tontine' || entryType === 'bank_loan' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Jour de prélèvement</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={dayOfMonth}
+                      onChange={(e) => setDayOfMonth(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-semibold text-slate-700 dark:text-slate-300">Échéance de fin</label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -504,7 +623,9 @@ export default function TontinesPage() {
           <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-slate-900 dark:text-slate-100">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <div>
-                <h2 className="text-sm font-bold">Enregistrer un versement</h2>
+                <h2 className="text-sm font-bold">
+                  {activeItemForPayment.type === 'bank_loan' ? 'Régler une mensualité' : 'Enregistrer un versement'}
+                </h2>
                 <p className="text-[11px] text-slate-500">{activeItemForPayment.title}</p>
               </div>
               <button
@@ -526,7 +647,7 @@ export default function TontinesPage() {
                   inputMode="numeric"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="25000"
+                  placeholder="125000"
                   required
                   autoFocus
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden text-center text-xl font-extrabold focus:border-emerald-500"

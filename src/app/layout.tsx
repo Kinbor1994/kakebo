@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { SecurityProvider } from '@/components/security/SecurityContext';
+import { AuthProvider } from '@/components/auth/AuthContext';
 import { PwaRegister } from '@/components/layout/PwaRegister';
 import { PwaInstallPrompt } from '@/components/layout/PwaInstallPrompt';
 
@@ -53,11 +54,13 @@ export default function RootLayout({
         suppressHydrationWarning
         className="min-h-full flex flex-col bg-[#F8F9FA] dark:bg-slate-950 text-slate-900 dark:text-slate-100"
       >
-        <SecurityProvider>
-          {children}
-          <PwaRegister />
-          <PwaInstallPrompt />
-        </SecurityProvider>
+        <AuthProvider>
+          <SecurityProvider>
+            {children}
+            <PwaRegister />
+            <PwaInstallPrompt />
+          </SecurityProvider>
+        </AuthProvider>
       </body>
     </html>
   );

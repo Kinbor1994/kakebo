@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/neon';
 import { verifyPassword, createSessionToken, COOKIE_NAME } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 interface LoginRequestBody {
   email?: string;
   password?: string;

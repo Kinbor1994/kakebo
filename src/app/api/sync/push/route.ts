@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { sql } from '@/lib/neon';
 
+export const dynamic = 'force-dynamic';
+
 interface PushSyncBody {
   userSettings?: {
     currency?: string;

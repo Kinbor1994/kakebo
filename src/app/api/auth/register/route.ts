@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/neon';
 import { hashPassword, createSessionToken, COOKIE_NAME } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 interface RegisterRequestBody {
   email?: string;
   password?: string;

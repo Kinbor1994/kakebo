@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { getCurrentMonth } from '@/lib/kakebo-engine';
@@ -15,6 +16,7 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickAddModal } from '@/components/kakebo/QuickAddModal';
 import { MonthSetupModal } from '@/components/kakebo/MonthSetupModal';
 import { useSecurity } from '@/components/security/SecurityContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import { PinLockScreen } from '@/components/security/PinLockScreen';
 import { PinSetupModal } from '@/components/security/PinSetupModal';
 import { downloadBackupFile, restoreBackupJSON, downloadTransactionsCSV } from '@/lib/export-import';
@@ -37,6 +39,13 @@ import {
   Pencil,
   Smartphone,
   Sparkles,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  UserCheck,
+  LogOut,
+  LogIn,
+  Database,
 } from 'lucide-react';
 
 const CURRENCIES = [
@@ -61,6 +70,15 @@ export default function ParametresPage() {
     disableBiometrics,
   } = useSecurity();
   const currency = userSettings?.currency || 'XOF';
+
+  const { user, syncStatus, lastSyncTime, logout, syncNow } = useAuth();
+  const [isSyncingManual, setIsSyncingManual] = useState(false);
+
+  const handleManualSync = async () => {
+    setIsSyncingManual(true);
+    await syncNow();
+    setIsSyncingManual(false);
+  };
 
   const [currentMonth, setCurrentMonth] = useState<string>(getCurrentMonth());
   const [isQuickAddOpen, setIsQuickAddOpen] = useState<boolean>(false);
@@ -302,6 +320,112 @@ export default function ParametresPage() {
             <span>{errorStatus}</span>
           </div>
         )}
+
+        {/* Section 0 : Compte Cloud & Synchronisation Neon */}
+        <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+              <Database className="h-4 w-4 text-emerald-600" />
+              <span>Compte Cloud & Sauvegarde Neon</span>
+            </div>
+
+            <div className="flex items-center space-x-1.5">
+              {user ? (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>En ligne</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                  <span>Mode local</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {user ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center space-x-1.5">
+                    <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>{user.name || 'Utilisateur Kakeibo'}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-500">{user.email}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-bold hover:bg-rose-100 transition"
+                  title="Se déconnecter"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Déconnexion</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex items-center space-x-2 text-[11px] text-slate-500">
+                  {syncStatus === 'syncing' ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 text-emerald-600 animate-spin" />
+                      <span>Synchronisation en cours...</span>
+                    </>
+                  ) : syncStatus === 'offline' ? (
+                    <>
+                      <CloudOff className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Hors-ligne (les modifications seront synchronisées au retour du réseau)</span>
+                    </>
+                  ) : (
+                    <>
+                      <Cloud className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>
+                        {lastSyncTime
+                          ? `Dernière synchronisation : ${lastSyncTime.toLocaleTimeString()}`
+                          : 'Synchronisé avec Neon PostgreSQL'}
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isSyncingManual}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs active:scale-95 disabled:opacity-50"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isSyncingManual ? 'animate-spin' : ''}`} />
+                  <span>Synchroniser</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Connectez votre compte pour sauvegarder automatiquement vos budgets, transactions, cagnottes et prêts bancaires sur <strong>Neon PostgreSQL</strong>. En cas de perte ou changement de smartphone, vous ne perdez rien.
+              </p>
+
+              <div className="flex items-center space-x-2 pt-1">
+                <Link
+                  href="/connexion"
+                  className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition shadow-xs"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>Se connecter</span>
+                </Link>
+
+                <Link
+                  href="/inscription"
+                  className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 transition"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Créer un compte</span>
+                </Link>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Section 1 : Gestion des Catégories Personnalisées */}
         <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3.5">

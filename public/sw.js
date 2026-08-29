@@ -1,11 +1,23 @@
-const CACHE_NAME = 'kakeibo-v1';
+const CACHE_NAME = 'kakeibo-v2';
 const STATIC_ASSETS = [
   '/',
   '/transactions',
-  '/bilan',
+  '/tontines',
   '/cagnottes',
+  '/rituels',
+  '/analyses',
   '/parametres',
-  '/manifest.json'
+  '/connexion',
+  '/inscription',
+  '/manifest.json',
+  '/manifest.webmanifest',
+  '/icon.svg',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-192-maskable.png',
+  '/icons/icon-512-maskable.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/favicon-32x32.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -31,6 +43,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Ignore API requests and non-GET requests from service worker caching
+  if (event.request.method !== 'GET' || event.request.url.includes('/api/')) {
+    return;
+  }
+
   // Navigation requests - network first, fallback to cache
   if (event.request.mode === 'navigate') {
     event.respondWith(

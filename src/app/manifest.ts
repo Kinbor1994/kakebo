@@ -1,0 +1,80 @@
+import type { MetadataRoute } from 'next';
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    id: '/',
+    name: 'Kakeibo — Finances Zen',
+    short_name: 'Kakeibo',
+    description: 'Gestion de finances personnelles et d\'épargne consciente selon la méthode japonaise Kakeibo.',
+    start_url: '/?source=pwa',
+    scope: '/',
+    display: 'standalone',
+    display_override: ['standalone', 'window-controls-overlay', 'minimal-ui'],
+    background_color: '#047857',
+    theme_color: '#047857',
+    orientation: 'portrait',
+    prefer_related_applications: false,
+    categories: ['finance', 'productivity', 'utilities'],
+    icons: [
+      {
+        src: '/icons/icon-192.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/icon-192-maskable.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icons/icon-512.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/icons/icon-512-maskable.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icons/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
+      },
+    ],
+    shortcuts: [
+      {
+        name: 'Journal des Dépenses',
+        short_name: 'Journal',
+        description: 'Consulter l\'historique des opérations',
+        url: '/transactions',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Prêts Bancaires & Tontines',
+        short_name: 'Prêts',
+        description: 'Suivre vos crédits et cotisations',
+        url: '/tontines',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Cagnottes d\'Épargne',
+        short_name: 'Cagnottes',
+        description: 'Projets d\'épargne et objectifs',
+        url: '/cagnottes',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+      {
+        name: 'Rituels 48h & Pleine Conscience',
+        short_name: 'Rituels',
+        description: 'Liste de réflexion 48h',
+        url: '/rituels',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+      },
+    ],
+  };
+}

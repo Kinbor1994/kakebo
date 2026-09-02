@@ -174,148 +174,261 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setSyncingFromCloud(true);
     try {
-      if (cloudData.userSettings) {
+      // 1. User Settings (Non-destructive update)
+    if (cloudData.userSettings) {
       const existingSettings = await db.userSettings.toCollection().first();
       const newSettings: UserSettings = {
         id: existingSettings?.id || 1,
-        currency: cloudData.userSettings.currency || 'XOF',
-        customCategories: (cloudData.userSettings.customCategories as Record<KakeiboPillar, string[]>) || {
+        currency: cloudData.userSettings.currency || existingSettings?.currency || 'XOF',
+        customCategories: (cloudData.userSettings.customCategories as Record<KakeiboPillar, string[]>) || existingSettings?.customCategories || {
           needs: PILLARS_CONFIG.needs.defaultCategories,
           wants: PILLARS_CONFIG.wants.defaultCategories,
           culture: PILLARS_CONFIG.culture.defaultCategories,
           unexpected: PILLARS_CONFIG.unexpected.defaultCategories,
         },
-        customIncomeCategories: cloudData.userSettings.customIncomeCategories || DEFAULT_INCOME_CATEGORIES,
-        isBiometricEnabled: Boolean(cloudData.userSettings.biometricsEnabled),
-        isPinEnabled: Boolean(cloudData.userSettings.pinHash),
-        pinHash: cloudData.userSettings.pinHash || undefined,
-        pinSalt: cloudData.userSettings.pinSalt || undefined,
+        customIncomeCategories: cloudData.userSettings.customIncomeCategories || existingSettings?.customIncomeCategories || DEFAULT_INCOME_CATEGORIES,
+        isBiometricEnabled: Boolean(cloudData.userSettings.biometricsEnabled ?? existingSettings?.isBiometricEnabled),
+        isPinEnabled: Boolean(cloudData.userSettings.pinHash ?? existingSettings?.pinHash),
+        pinHash: cloudData.userSettings.pinHash || existingSettings?.pinHash,
+        pinSalt: cloudData.userSettings.pinSalt || existingSettings?.pinSalt,
         autoLockMinutes: existingSettings?.autoLockMinutes || 5,
         theme: existingSettings?.theme || 'system',
       };
       await db.userSettings.put(newSettings);
     }
 
+    // 2. Monthly Budgets (Merge union by month without clearing local months)
     if (cloudData.monthlyBudgets) {
-      await db.monthlyBudgets.clear();
+      const localBudgets = await db.monthlyBudgets.toArray();
+      const localMap = new Map(localBudgets.map((b) => [b.month, b]));
+
       for (const b of cloudData.monthlyBudgets) {
-        await db.monthlyBudgets.put({
-          month: b.month,
-          fixedIncomes: b.fixedIncomes,
-          extraIncomes: b.extraIncomes,
-          fixedExpenses: b.fixedExpenses,
-          targetSavings: b.targetSavings,
-          notes: b.notes,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
+        const local = localMap.get(b.month);
+        if (local?.id) {
+          await db.monthlyBudgets.update(local.id, {
+            fixedIncomes: b.fixedIncomes,
+            extraIncomes: b.extraIncomes,
+            fixedExpenses: b.fixedExpenses,
+            targetSavings: b.targetSavings,
+            notes: b.notes,
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          await db.monthlyBudgets.add({
+            month: b.month,
+            fixedIncomes: b.fixedIncomes,
+            extraIncomes: b.extraIncomes,
+            fixedExpenses: b.fixedExpenses,
+            targetSavings: b.targetSavings,
+            notes: b.notes,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
     }
 
+    // 3. Transactions (Merge union without clearing local recent transactions)
     if (cloudData.transactions) {
-      await db.transactions.clear();
+      const localTransactions = await db.transactions.toArray();
+      const localSignatures = new Set(
+        localTransactions.map(
+          (t) => `${t.date}_${t.amount}_${t.type}_${t.category}_${t.description || ''}`
+        )
+      );
+
       for (const t of cloudData.transactions) {
-        await db.transactions.add({
-          month: t.month,
-          date: t.date,
-          amount: t.amount,
-          type: t.type,
-          pillar: t.pillar,
-          category: t.category,
-          description: t.description,
-          isRecurring: t.isRecurring,
-          createdAt: t.createdAt || new Date().toISOString(),
-        });
+        const sig = `${t.date}_${t.amount}_${t.type}_${t.category}_${t.description || ''}`;
+        if (!localSignatures.has(sig)) {
+          await db.transactions.add({
+            month: t.month,
+            date: t.date,
+            amount: t.amount,
+            type: t.type,
+            pillar: t.pillar,
+            category: t.category,
+            description: t.description,
+            isRecurring: t.isRecurring,
+            createdAt: t.createdAt || new Date().toISOString(),
+          });
+          localSignatures.add(sig);
+        }
       }
     }
 
+    // 4. Reflections (Merge by periodKey)
     if (cloudData.reflections) {
-      await db.reflections.clear();
+      const localReflections = await db.reflections.toArray();
+      const localMap = new Map(localReflections.map((r) => [r.periodKey, r]));
+
       for (const r of cloudData.reflections) {
-        await db.reflections.add({
-          periodType: r.periodType,
-          periodKey: r.periodKey,
-          month: r.month,
-          spentTotal: r.spentTotal,
-          savedTotal: r.savedTotal,
-          targetAchieved: r.targetAchieved,
-          answers: {
-            spentReview: r.answers?.spentReview || '',
-            savingSuccess: r.answers?.savingSuccess || '',
-            criticalAssessment: r.answers?.criticalAssessment || '',
-            futureCommitment: r.answers?.futureCommitment || '',
-          },
-          createdAt: new Date().toISOString(),
-        });
+        const local = localMap.get(r.periodKey);
+        const answers: ReflectionAnswers = {
+          spentReview: r.answers?.spentReview || '',
+          savingSuccess: r.answers?.savingSuccess || '',
+          criticalAssessment: r.answers?.criticalAssessment || '',
+          futureCommitment: r.answers?.futureCommitment || '',
+        };
+
+        if (local?.id) {
+          await db.reflections.update(local.id, {
+            spentTotal: r.spentTotal,
+            savedTotal: r.savedTotal,
+            targetAchieved: r.targetAchieved,
+            answers,
+          });
+        } else {
+          await db.reflections.add({
+            periodType: r.periodType,
+            periodKey: r.periodKey,
+            month: r.month,
+            spentTotal: r.spentTotal,
+            savedTotal: r.savedTotal,
+            targetAchieved: r.targetAchieved,
+            answers,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
     }
 
+    // 5. Savings Goals (Merge by title)
     if (cloudData.savingsGoals) {
-      await db.savingsGoals.clear();
+      const localGoals = await db.savingsGoals.toArray();
+      const localMap = new Map(localGoals.map((g) => [g.title.toLowerCase().trim(), g]));
+
       for (const g of cloudData.savingsGoals) {
-        await db.savingsGoals.add({
-          title: g.title,
-          targetAmount: g.targetAmount,
-          currentAmount: g.currentAmount,
-          deadline: g.deadline,
-          iconKey: g.iconKey,
-          colorHex: g.colorHex,
-          createdAt: g.createdAt || new Date().toISOString(),
-        });
+        const key = g.title.toLowerCase().trim();
+        const local = localMap.get(key);
+        if (local?.id) {
+          await db.savingsGoals.update(local.id, {
+            targetAmount: g.targetAmount,
+            currentAmount: g.currentAmount,
+            deadline: g.deadline,
+            iconKey: g.iconKey,
+            colorHex: g.colorHex,
+          });
+        } else {
+          await db.savingsGoals.add({
+            title: g.title,
+            targetAmount: g.targetAmount,
+            currentAmount: g.currentAmount,
+            deadline: g.deadline,
+            iconKey: g.iconKey,
+            colorHex: g.colorHex,
+            createdAt: g.createdAt || new Date().toISOString(),
+          });
+        }
       }
     }
 
+    // 6. Recurring Items (Merge by title + type + dayOfMonth)
     if (cloudData.recurringItems) {
-      await db.recurringItems.clear();
+      const localItems = await db.recurringItems.toArray();
+      const localMap = new Map(
+        localItems.map((r) => [`${r.title.toLowerCase().trim()}_${r.type}_${r.dayOfMonth}`, r])
+      );
+
       for (const item of cloudData.recurringItems) {
-        await db.recurringItems.add({
-          title: item.title,
-          amount: item.amount,
-          type: item.type,
-          pillar: item.pillar,
-          category: item.category,
-          dayOfMonth: item.dayOfMonth,
-          isActive: item.isActive,
-          createdAt: item.createdAt || new Date().toISOString(),
-        });
+        const key = `${item.title.toLowerCase().trim()}_${item.type}_${item.dayOfMonth}`;
+        const local = localMap.get(key);
+        if (local?.id) {
+          await db.recurringItems.update(local.id, {
+            amount: item.amount,
+            pillar: item.pillar,
+            category: item.category,
+            isActive: item.isActive,
+          });
+        } else {
+          await db.recurringItems.add({
+            title: item.title,
+            amount: item.amount,
+            type: item.type,
+            pillar: item.pillar,
+            category: item.category,
+            dayOfMonth: item.dayOfMonth,
+            isActive: item.isActive,
+            createdAt: item.createdAt || new Date().toISOString(),
+          });
+        }
       }
     }
 
+    // 7. Wishlist Items (Merge by title)
     if (cloudData.wishlistItems) {
-      await db.wishlistItems.clear();
+      const localWishlist = await db.wishlistItems.toArray();
+      const localMap = new Map(localWishlist.map((w) => [w.title.toLowerCase().trim(), w]));
+
       for (const w of cloudData.wishlistItems) {
-        await db.wishlistItems.add({
-          title: w.title,
-          amount: w.amount,
-          pillar: w.pillar,
-          category: w.category,
-          reflectionExpiresAt: w.reflectionExpiresAt,
-          status: w.status,
-          notes: w.notes,
-          createdAt: w.createdAt || new Date().toISOString(),
-        });
+        const key = w.title.toLowerCase().trim();
+        const local = localMap.get(key);
+        if (local?.id) {
+          await db.wishlistItems.update(local.id, {
+            amount: w.amount,
+            pillar: w.pillar,
+            category: w.category,
+            status: w.status,
+            notes: w.notes,
+          });
+        } else {
+          await db.wishlistItems.add({
+            title: w.title,
+            amount: w.amount,
+            pillar: w.pillar,
+            category: w.category,
+            reflectionExpiresAt: w.reflectionExpiresAt,
+            status: w.status,
+            notes: w.notes,
+            createdAt: w.createdAt || new Date().toISOString(),
+          });
+        }
       }
     }
 
+    // 8. Debts & Loans (Merge by title + contactName + type)
     if (cloudData.debtsAndLoans) {
-      await db.debtsAndLoans.clear();
+      const localDebts = await db.debtsAndLoans.toArray();
+      const localMap = new Map(
+        localDebts.map((d) => [
+          `${d.title.toLowerCase().trim()}_${d.contactName.toLowerCase().trim()}_${d.type}`,
+          d,
+        ])
+      );
+
       for (const d of cloudData.debtsAndLoans) {
-        await db.debtsAndLoans.add({
-          type: d.type,
-          title: d.title,
-          contactName: d.contactName,
-          totalAmount: d.totalAmount,
-          paidAmount: d.paidAmount,
-          monthlyPayment: d.monthlyPayment,
-          durationMonths: d.durationMonths,
-          interestRate: d.interestRate,
-          totalInterest: d.totalInterest,
-          dueDate: d.dueDate,
-          dayOfMonth: d.dayOfMonth,
-          notes: d.notes,
-          status: d.status,
-          createdAt: d.createdAt || new Date().toISOString(),
-        });
+        const key = `${d.title.toLowerCase().trim()}_${d.contactName.toLowerCase().trim()}_${d.type}`;
+        const local = localMap.get(key);
+        if (local?.id) {
+          await db.debtsAndLoans.update(local.id, {
+            totalAmount: d.totalAmount,
+            paidAmount: d.paidAmount,
+            monthlyPayment: d.monthlyPayment,
+            durationMonths: d.durationMonths,
+            interestRate: d.interestRate,
+            totalInterest: d.totalInterest,
+            dueDate: d.dueDate,
+            dayOfMonth: d.dayOfMonth,
+            notes: d.notes,
+            status: d.status,
+          });
+        } else {
+          await db.debtsAndLoans.add({
+            type: d.type,
+            title: d.title,
+            contactName: d.contactName,
+            totalAmount: d.totalAmount,
+            paidAmount: d.paidAmount,
+            monthlyPayment: d.monthlyPayment,
+            durationMonths: d.durationMonths,
+            interestRate: d.interestRate,
+            totalInterest: d.totalInterest,
+            dueDate: d.dueDate,
+            dayOfMonth: d.dayOfMonth,
+            notes: d.notes,
+            status: d.status,
+            createdAt: d.createdAt || new Date().toISOString(),
+          });
+        }
       }
     }
   } finally {
@@ -360,7 +473,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, getLocalDataSnapshot]);
 
-  // Initial user check on app mount
+  // Initial user check on app mount with bidirectional sync
   useEffect(() => {
     async function checkAuth() {
       try {
@@ -372,30 +485,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(data.user);
           setSyncStatus('syncing');
 
-          // Pull cloud data on session load
+          // Pull cloud data on session load and perform intelligent two-way merge
           try {
             const pullRes = await fetch('/api/sync/pull');
             if (pullRes.ok) {
               const pullData = await pullRes.json();
               if (pullData.data) {
-                // If cloud has data, hydrate local DB
-                const hasCloudData =
-                  (pullData.data.transactions && pullData.data.transactions.length > 0) ||
-                  (pullData.data.monthlyBudgets && pullData.data.monthlyBudgets.length > 0) ||
-                  (pullData.data.savingsGoals && pullData.data.savingsGoals.length > 0) ||
-                  (pullData.data.debtsAndLoans && pullData.data.debtsAndLoans.length > 0);
+                await hydrateLocalDatabase(pullData.data);
+                
+                // Immediately push merged snapshot back to cloud so Neon has any local additions
+                const mergedSnapshot = await getLocalDataSnapshot();
+                await fetch('/api/sync/push', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(mergedSnapshot),
+                });
 
-                if (hasCloudData) {
-                  await hydrateLocalDatabase(pullData.data);
-                } else {
-                  // If cloud is empty but local has data, initial push
-                  const localSnapshot = await getLocalDataSnapshot();
-                  await fetch('/api/sync/push', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(localSnapshot),
-                  });
-                }
                 setSyncStatus('synced');
                 setLastSyncTime(new Date());
               }

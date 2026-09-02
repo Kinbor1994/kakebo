@@ -45,9 +45,58 @@ export class KakeiboDatabase extends Dexie {
       wishlistItems: '++id, status, pillar, createdAt',
       debtsAndLoans: '++id, type, status, dueDate, createdAt',
       savingsChallenges: '++id, month, type, status',
-      userSettings: '++id',
+    });
+
+    const tables = [
+      this.monthlyBudgets,
+      this.transactions,
+      this.reflections,
+      this.savingsGoals,
+      this.recurringItems,
+      this.wishlistItems,
+      this.debtsAndLoans,
+      this.savingsChallenges,
+      this.userSettings,
+    ];
+
+    tables.forEach((table) => {
+      table.hook('creating', () => {
+        setTimeout(triggerDatabaseChange, 0);
+      });
+      table.hook('updating', () => {
+        setTimeout(triggerDatabaseChange, 0);
+      });
+      table.hook('deleting', () => {
+        setTimeout(triggerDatabaseChange, 0);
+      });
     });
   }
+}
+
+type ChangeListener = () => void;
+const changeListeners: Set<ChangeListener> = new Set();
+let isSyncingFromCloud = false;
+
+export function setSyncingFromCloud(status: boolean) {
+  isSyncingFromCloud = status;
+}
+
+export function onDatabaseChange(listener: ChangeListener): () => void {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
+}
+
+function triggerDatabaseChange() {
+  if (isSyncingFromCloud) return;
+  changeListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch (err) {
+      console.error('Error in database change listener:', err);
+    }
+  });
 }
 
 export const db = new KakeiboDatabase();

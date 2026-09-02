@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/db';
+import { db, onDatabaseChange, setSyncingFromCloud } from '@/lib/db';
 import {
   type UserSettings,
   type KakeiboPillar,
@@ -172,7 +172,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     if (!cloudData) return;
 
-    if (cloudData.userSettings) {
+    setSyncingFromCloud(true);
+    try {
+      if (cloudData.userSettings) {
       const existingSettings = await db.userSettings.toCollection().first();
       const newSettings: UserSettings = {
         id: existingSettings?.id || 1,
@@ -316,7 +318,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
     }
-  }, []);
+  } finally {
+    setTimeout(() => setSyncingFromCloud(false), 500);
+  }
+}, []);
 
   // Sync with Cloud Neon DB
   const syncNow = useCallback(async (): Promise<boolean> => {
@@ -432,6 +437,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+    };
+  }, [user, syncNow]);
+
+  // Real-time automatic background sync whenever local Dexie data changes
+  useEffect(() => {
+    if (!user) return;
+
+    let debounceTimer: NodeJS.Timeout | null = null;
+
+    const unsubscribe = onDatabaseChange(() => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        syncNow();
+      }, 1200); // 1.2s debounce to batch consecutive changes smoothly
+    });
+
+    return () => {
+      unsubscribe();
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
   }, [user, syncNow]);
 

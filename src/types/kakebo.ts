@@ -198,6 +198,8 @@ export interface WishlistItem {
 // Module Dettes, Créances, Tontines & Prêts Bancaires
 export type DebtLoanType = 'bank_loan' | 'tontine' | 'lent' | 'borrowed';
 
+export type LoanInterestType = 'flat' | 'declining';
+
 export interface DebtOrLoan {
   id?: number;
   type: DebtLoanType;
@@ -205,15 +207,62 @@ export interface DebtOrLoan {
   contactName: string;          // Nom de la banque (BOA, Ecobank...) ou contact
   totalAmount: number;          // Montant total du capital emprunté
   paidAmount: number;           // Montant déjà remboursé (amorti)
-  monthlyPayment?: number;      // Mensualité fixe calculée automatiquement
+  monthlyPayment?: number;      // Mensualité de base calculée automatiquement (hors frais)
+  monthlyFee?: number;          // Frais mensuels fixes (assurance, dossier, prélèvement)
+  interestType?: LoanInterestType; // 'flat' (forfaitaire unique sur capital) ou 'declining' (dégressif annuel)
+  startDate?: string;           // Date de début / 1re échéance (YYYY-MM-DD)
   durationMonths?: number;      // Durée en nombre de mois
-  interestRate?: number;        // Taux d'intérêt annuel en %
+  interestRate?: number;        // Taux d'intérêt en %
   totalInterest?: number;       // Coût total des intérêts calculé
   dueDate?: string;             // Date d'échéance de fin (YYYY-MM-DD)
   dayOfMonth?: number;          // 1-31 (jour de prélèvement de la mensualité)
   notes?: string;
   status: 'active' | 'settled';
   createdAt: string;
+}
+
+// Prélèvements automatiques typés selon leur nature comptable
+export type AutoDebitType = 'charge' | 'debt_repayment' | 'auto_savings';
+
+export interface AutoDebitItem {
+  id: string;
+  title: string;
+  amount: number;
+  type: AutoDebitType;
+  dayOfMonth: number;
+  linkedLoanId?: number;
+  startMonth?: string;          // Format 'YYYY-MM'
+  endMonth?: string;            // Format 'YYYY-MM'
+  isActive: boolean;
+}
+
+// Configuration universelle du module Carburant & Transport
+export type FuelScenarioMode = 'solo' | 'shared';
+
+export interface FuelConfig {
+  enabled: boolean;
+  pricePerLiter: number;
+  litersPerWeekSolo: number;
+  sharedWeekALiters: number;
+  sharedWeekBLiters: number;
+  activeScenario: FuelScenarioMode;
+  defaultPillar: KakeiboPillar;
+  defaultCategory: string;
+}
+
+// Profil financier universel et personnalisable
+export interface FinancialProfile {
+  recurringMonthlyIncome: number;
+  paydayDay: number;
+  monthlyFixedCharges: number;
+  extraTargetSavings: number;
+  initialLiquidReserve: number;
+  safetyThreshold: number;
+  initialLockedSavings: number;
+  lockedSavingsStartMonth: string; // Format 'YYYY-MM'
+  autoDebits: AutoDebitItem[];
+  fuelConfig: FuelConfig;
+  pillarRatios?: Record<KakeiboPillar, number>;
 }
 
 // Module Défis d'épargne (No Spend Days, etc.)
@@ -242,6 +291,7 @@ export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   customCategories: Record<KakeiboPillar, string[]>;
   customIncomeCategories: string[];
+  financialProfile?: FinancialProfile;
 }
 
 export interface MonthlyStats {
@@ -260,5 +310,23 @@ export interface MonthlyStats {
     weekLabel: string;
     spent: number;
     budget: number;
+    fuelBudget?: number;
+    nonFuelBudget?: number;
+    fuelSpent?: number;
   }>;
+  // Champs détaillés du profil financier réel
+  autoChargesTotal?: number;
+  debtRepaymentsTotal?: number;
+  autoSavingsTotal?: number;
+  extraTargetSavings?: number;
+  netAvailableAfterAutoDebits?: number;
+  disposableBeforeVariable?: number;
+  estimatedMonthlyFuelCost?: number;
+  fuelSpentThisMonth?: number;
+  otherVariableSpent?: number;
+  weeklyFuelBudget?: number;
+  weeklyNonFuelBudget?: number;
+  pillarAllocatedBudgets?: Record<KakeiboPillar, number>;
+  pillarUsagePercentage?: Record<KakeiboPillar, number>;
 }
+

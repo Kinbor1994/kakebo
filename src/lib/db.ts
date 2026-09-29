@@ -101,8 +101,13 @@ function triggerDatabaseChange() {
 
 export const db = new KakeiboDatabase();
 
+import {
+  createDefaultFinancialProfile,
+  createDemoReferenceData,
+} from '@/lib/financial-engine';
+
 /**
- * Initializes default user settings in French with F CFA (XOF) and custom categories
+ * Initializes default user settings in French with F CFA (XOF), dark theme, and financialProfile
  */
 export async function getOrCreateUserSettings(): Promise<UserSettings> {
   const existing = await db.userSettings.toCollection().first();
@@ -130,6 +135,11 @@ export async function getOrCreateUserSettings(): Promise<UserSettings> {
       needsUpdate = true;
     }
 
+    if (!existing.financialProfile) {
+      updates.financialProfile = createDefaultFinancialProfile();
+      needsUpdate = true;
+    }
+
     if (needsUpdate && existing.id) {
       await db.userSettings.update(existing.id, updates);
       return { ...existing, ...updates };
@@ -143,7 +153,7 @@ export async function getOrCreateUserSettings(): Promise<UserSettings> {
     isPinEnabled: false,
     autoLockMinutes: 2,
     userName: '',
-    theme: 'light',
+    theme: 'dark',
     customCategories: {
       needs: [...PILLARS_CONFIG.needs.defaultCategories],
       wants: [...PILLARS_CONFIG.wants.defaultCategories],
@@ -151,10 +161,40 @@ export async function getOrCreateUserSettings(): Promise<UserSettings> {
       unexpected: [...PILLARS_CONFIG.unexpected.defaultCategories],
     },
     customIncomeCategories: [...DEFAULT_INCOME_CATEGORIES],
+    financialProfile: createDefaultFinancialProfile(),
   };
 
   const id = await db.userSettings.add(defaultSettings);
   return { ...defaultSettings, id };
+}
+
+/**
+ * Charge le profil financier de démonstration et le prêt de référence sans supprimer aucune donnée existante
+ */
+export async function loadDemoFinancialProfile(): Promise<void> {
+  const { profile, demoLoan } = createDemoReferenceData();
+  const settings = await getOrCreateUserSettings();
+
+  if (settings.id) {
+    await db.userSettings.update(settings.id, {
+      financialProfile: profile,
+    });
+  }
+
+  // Vérifie si le prêt de démonstration existe déjà sans écraser les autres prêts/tontines
+  const existingLoans = await db.debtsAndLoans.toArray();
+  const matchingLoan = existingLoans.find(
+    (l) => l.type === 'bank_loan' && l.title.toLowerCase().trim() === demoLoan.title.toLowerCase().trim()
+  );
+
+  if (matchingLoan?.id) {
+    await db.debtsAndLoans.update(matchingLoan.id, {
+      ...demoLoan,
+      paidAmount: matchingLoan.paidAmount,
+    });
+  } else {
+    await db.debtsAndLoans.add(demoLoan);
+  }
 }
 
 /**
@@ -189,3 +229,4 @@ export async function applyRecurringItemsForMonth(month: string): Promise<void> 
     }
   }
 }
+

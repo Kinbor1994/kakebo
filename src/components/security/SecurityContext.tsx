@@ -48,15 +48,32 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refreshSettings();
-    isBiometricAvailable().then(setIsBiometricAvailableOnDevice);
-  }, [refreshSettings]);
+    let active = true;
+    getOrCreateUserSettings()
+      .then((settings) => {
+        if (!active) return;
+        setUserSettings(settings);
+        setIsLocked(Boolean(settings.isPinEnabled && settings.pinHash));
+      })
+      .catch((err) => {
+        console.error('Failed to load user settings:', err);
+      })
+      .finally(() => {
+        if (active) setIsReady(true);
+      });
+    isBiometricAvailable().then((avail) => {
+      if (active) setIsBiometricAvailableOnDevice(avail);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const lockNow = useCallback(() => {
     if (userSettings?.isPinEnabled) {
       setIsLocked(true);
     }
-  }, [userSettings?.isPinEnabled]);
+  }, [userSettings]);
 
   const resetActivityTimer = useCallback(() => {
     if (activityTimerRef.current) {
@@ -67,7 +84,7 @@ export function SecurityProvider({ children }: { children: React.ReactNode }) {
         setIsLocked(true);
       }, userSettings.autoLockMinutes * 60 * 1000);
     }
-  }, [userSettings?.isPinEnabled, userSettings?.autoLockMinutes, isLocked]);
+  }, [userSettings, isLocked]);
 
   useEffect(() => {
     if (!userSettings?.isPinEnabled || userSettings.autoLockMinutes === 0) return;

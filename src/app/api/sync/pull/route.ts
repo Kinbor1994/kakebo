@@ -35,6 +35,11 @@ export async function GET() {
     ]);
 
     const userSettings = settingsRows[0] || null;
+    const rawCustomCategories =
+      userSettings && typeof userSettings.custom_categories === 'object' && userSettings.custom_categories !== null
+        ? (userSettings.custom_categories as Record<string, unknown>)
+        : {};
+    const { __financialProfile, ...cleanCustomCategories } = rawCustomCategories;
 
     return NextResponse.json({
       success: true,
@@ -42,11 +47,12 @@ export async function GET() {
         userSettings: userSettings
           ? {
               currency: userSettings.currency,
-              customCategories: userSettings.custom_categories || {},
+              customCategories: cleanCustomCategories,
               customIncomeCategories: userSettings.custom_income_categories || [],
               biometricsEnabled: userSettings.biometrics_enabled,
               pinHash: userSettings.pin_hash,
               pinSalt: userSettings.pin_salt,
+              financialProfile: __financialProfile || undefined,
             }
           : null,
         monthlyBudgets: budgetsRows.map((b) => ({

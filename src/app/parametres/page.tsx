@@ -15,6 +15,7 @@ import { AppHeader } from '@/components/layout/AppHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickAddModal } from '@/components/kakebo/QuickAddModal';
 import { MonthSetupModal } from '@/components/kakebo/MonthSetupModal';
+import { FinancialProfileSettings } from '@/components/kakebo/FinancialProfileSettings';
 import { useSecurity } from '@/components/security/SecurityContext';
 import { useAuth } from '@/components/auth/AuthContext';
 import { PinLockScreen } from '@/components/security/PinLockScreen';
@@ -38,7 +39,6 @@ import {
   X,
   Pencil,
   Smartphone,
-  Sparkles,
   Cloud,
   CloudOff,
   RefreshCw,
@@ -320,6 +320,22 @@ export default function ParametresPage() {
             <span>{errorStatus}</span>
           </div>
         )}
+
+        {/* Section Profil Financier, Réserves & Prélèvements à la source */}
+        <FinancialProfileSettings
+          key={
+            userSettings?.id
+              ? `${userSettings.id}-${userSettings.financialProfile?.recurringMonthlyIncome ?? 0}-${userSettings.financialProfile?.initialLiquidReserve ?? 0}`
+              : 'loading'
+          }
+          userSettings={userSettings}
+          currency={currency}
+          onUpdated={async (msg) => {
+            await refreshSettings();
+            setBackupStatus(msg);
+            setTimeout(() => setBackupStatus(''), 3500);
+          }}
+        />
 
         {/* Section 0 : Compte Cloud & Synchronisation Neon */}
         <section className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-slate-900 p-4 shadow-xs space-y-3.5">

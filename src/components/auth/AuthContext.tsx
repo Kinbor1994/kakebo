@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { db, onDatabaseChange, setSyncingFromCloud } from '@/lib/db';
 import {
   type UserSettings,
+  type FinancialProfile,
   type KakeiboPillar,
   type ReflectionAnswers,
   PILLARS_CONFIG,
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             biometricsEnabled: userSettings.isBiometricEnabled,
             pinHash: userSettings.pinHash,
             pinSalt: userSettings.pinSalt,
+            financialProfile: userSettings.financialProfile,
           }
         : undefined,
       monthlyBudgets,
@@ -95,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       biometricsEnabled?: boolean;
       pinHash?: string | null;
       pinSalt?: string | null;
+      financialProfile?: FinancialProfile;
     } | null;
     monthlyBudgets?: Array<{
       month: string;
@@ -192,7 +195,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         pinHash: cloudData.userSettings.pinHash || existingSettings?.pinHash,
         pinSalt: cloudData.userSettings.pinSalt || existingSettings?.pinSalt,
         autoLockMinutes: existingSettings?.autoLockMinutes || 5,
-        theme: existingSettings?.theme || 'system',
+        theme: existingSettings?.theme || 'dark',
+        financialProfile: cloudData.userSettings.financialProfile || existingSettings?.financialProfile,
       };
       await db.userSettings.put(newSettings);
     }

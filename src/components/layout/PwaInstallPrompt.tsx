@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Download, X, Smartphone, Share, PlusSquare, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Download, X, Smartphone, Share, PlusSquare, CheckCircle2 } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -17,29 +17,25 @@ export function PwaInstallPrompt() {
   const [installedSuccess, setInstalledSuccess] = useState<boolean>(false);
 
   useEffect(() => {
-    // 1. Check if running in standalone mode (already installed)
     const isStandaloneMode =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
 
-    setIsStandalone(isStandaloneMode);
-
-    if (isStandaloneMode) {
-      return;
-    }
-
-    // 2. Check if dismissed recently
-    const dismissed = localStorage.getItem('kakeibo_pwa_install_dismissed');
-    if (dismissed) {
-      setIsDismissed(true);
-    } else {
-      setIsDismissed(false);
-    }
-
-    // 3. Detect iOS device
+    const dismissed = Boolean(localStorage.getItem('kakeibo_pwa_install_dismissed'));
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIos(isIosDevice);
+
+    const timer = window.setTimeout(() => {
+      setIsStandalone(isStandaloneMode);
+      if (!isStandaloneMode) {
+        setIsDismissed(dismissed);
+        setIsIos(isIosDevice);
+      }
+    }, 0);
+
+    if (isStandaloneMode) {
+      return () => window.clearTimeout(timer);
+    }
 
     // 4. Capture beforeinstallprompt event (Android / Chromium)
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -61,6 +57,7 @@ export function PwaInstallPrompt() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };

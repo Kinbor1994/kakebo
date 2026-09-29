@@ -12,6 +12,7 @@ interface PushSyncBody {
     biometricsEnabled?: boolean;
     pinHash?: string | null;
     pinSalt?: string | null;
+    financialProfile?: unknown;
   };
   monthlyBudgets?: Array<{
     month: string;
@@ -96,7 +97,13 @@ export async function POST(req: Request) {
     // 1. Update user settings
     if (body.userSettings) {
       const currency = body.userSettings.currency || 'XOF';
-      const customCategories = JSON.stringify(body.userSettings.customCategories || {});
+      const customCategoriesPayload = {
+        ...(body.userSettings.customCategories || {}),
+        ...(body.userSettings.financialProfile
+          ? { __financialProfile: body.userSettings.financialProfile }
+          : {}),
+      };
+      const customCategories = JSON.stringify(customCategoriesPayload);
       const customIncomeCategories = JSON.stringify(body.userSettings.customIncomeCategories || []);
       const biometricsEnabled = Boolean(body.userSettings.biometricsEnabled);
       const pinHash = body.userSettings.pinHash || null;

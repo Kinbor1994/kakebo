@@ -1,14 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db, applyRecurringItemsForMonth } from '@/lib/db';
+import { db, applyRecurringItemsForMonth, loadDemoFinancialProfile } from '@/lib/db';
 import { getCurrentMonth, calculateMonthlyStats } from '@/lib/kakebo-engine';
+import {
+  createDefaultFinancialProfile,
+  evaluateFinancialAlerts,
+  calculateNetWorth,
+} from '@/lib/financial-engine';
 import { type KakeiboPillar, type Transaction, PILLARS_CONFIG } from '@/types/kakebo';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { BudgetOverview } from '@/components/kakebo/BudgetOverview';
 import { PillarCard } from '@/components/kakebo/PillarCard';
+import { FuelModuleCard } from '@/components/kakebo/FuelModuleCard';
+import { AlertsBanner } from '@/components/kakebo/AlertsBanner';
+import { NetWorthAndProjection } from '@/components/kakebo/NetWorthAndProjection';
 import { QuickAddModal } from '@/components/kakebo/QuickAddModal';
 import { MonthSetupModal } from '@/components/kakebo/MonthSetupModal';
 import { useSecurity } from '@/components/security/SecurityContext';
@@ -26,7 +34,6 @@ import {
   Lightbulb,
   PieChart,
   Clock,
-  Handshake,
   Landmark,
   Target,
   Pencil,
@@ -42,7 +49,7 @@ const PILLAR_ICONS = {
 };
 
 export default function DashboardPage() {
-  const { isLocked, userSettings } = useSecurity();
+  const { isLocked, userSettings, refreshSettings } = useSecurity();
   const currency = userSettings?.currency || 'XOF';
 
   const [currentMonth, setCurrentMonth] = useState<string>(getCurrentMonth());
@@ -70,11 +77,63 @@ export default function DashboardPage() {
 
   const transactions = useLiveQuery(
     () => db.transactions.where('month').equals(currentMonth).reverse().toArray(),
-    [currentMonth]
-  ) || [];
+    [currentMonth],
+    []
+  );
 
-  const stats = calculateMonthlyStats(budget, transactions);
+  const debtsAndLoans = useLiveQuery(() => db.debtsAndLoans.toArray(), [], []);
+  const savingsGoals = useLiveQuery(() => db.savingsGoals.toArray(), [], []);
+
+  const profile = useMemo(
+    () => userSettings?.financialProfile ?? createDefaultFinancialProfile(currentMonth),
+    [userSettings?.financialProfile, currentMonth]
+  );
+
+  const stats = useMemo(
+    () =>
+      calculateMonthlyStats(budget, transactions, {
+        financialProfile: profile,
+        loans: debtsAndLoans,
+        month: currentMonth,
+      }),
+    [budget, transactions, profile, debtsAndLoans, currentMonth]
+  );
+
+  const netWorth = useMemo(
+    () =>
+      calculateNetWorth({
+        profile,
+        loans: debtsAndLoans,
+        savingsGoals,
+        targetMonth: currentMonth,
+      }),
+    [profile, debtsAndLoans, savingsGoals, currentMonth]
+  );
+
+  const alerts = useMemo(
+    () =>
+      evaluateFinancialAlerts({
+        remainingToSpend: stats.remainingToSpend,
+        liquidReserve: netWorth.liquidReserve,
+        safetyThreshold: profile.safetyThreshold,
+        spentByPillar: stats.spentByPillar,
+        pillarAllocatedBudgets: stats.pillarAllocatedBudgets ?? {
+          needs: 0,
+          wants: 0,
+          culture: 0,
+          unexpected: 0,
+        },
+        weeklyBreakdown: stats.weeklyBreakdown,
+      }),
+    [stats, profile.safetyThreshold, netWorth.liquidReserve]
+  );
+
   const recentTransactions = transactions.slice(0, 5);
+
+  const handleLoadDemo = async () => {
+    await loadDemoFinancialProfile();
+    await refreshSettings();
+  };
 
   const handleOpenEdit = (t: Transaction) => {
     setEditingTransaction(t);
@@ -125,12 +184,24 @@ export default function DashboardPage() {
 
       {/* Main Container */}
       <main className="mx-auto max-w-xl px-3.5 pt-4 sm:px-4 sm:pt-5 space-y-4 sm:space-y-5">
-        {/* Central Budget & Savings Overview */}
+        {/* Financial Alerts Banner */}
+        <AlertsBanner alerts={alerts} />
+
+        {/* Central Budget, Real Living Budget & Weekly Envelope Overview */}
         <BudgetOverview
           stats={stats}
           budget={budget}
           currency={currency}
           onOpenSetup={() => setIsMonthSetupOpen(true)}
+          onLoadDemo={handleLoadDemo}
+        />
+
+        {/* Fuel Module Card */}
+        <FuelModuleCard
+          userSettings={userSettings}
+          transactions={transactions}
+          currency={currency}
+          onRefreshSettings={refreshSettings}
         />
 
         {/* 4 Kakeibo Pillars Grid */}
@@ -158,6 +229,15 @@ export default function DashboardPage() {
             ))}
           </div>
         </section>
+
+        {/* Net Worth (Liquide / Épargne Bloquée / Dettes) & Multi-Month Projection */}
+        <NetWorthAndProjection
+          profile={profile}
+          loans={debtsAndLoans}
+          savingsGoals={savingsGoals}
+          currentMonth={currentMonth}
+          currency={currency}
+        />
 
         {/* Quick Modules Navigation Grid */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">

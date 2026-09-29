@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
 import { getCurrentMonth, formatMonthLabel, calculateMonthlyStats } from '@/lib/kakebo-engine';
+import { createDefaultFinancialProfile } from '@/lib/financial-engine';
 import { type Reflection, type ReflectionPeriodType } from '@/types/kakebo';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickAddModal } from '@/components/kakebo/QuickAddModal';
 import { MonthSetupModal } from '@/components/kakebo/MonthSetupModal';
+import { NetWorthAndProjection } from '@/components/kakebo/NetWorthAndProjection';
 import { useSecurity } from '@/components/security/SecurityContext';
 import { PinLockScreen } from '@/components/security/PinLockScreen';
 import { formatCurrency } from '@/lib/utils';
@@ -51,7 +53,19 @@ export default function BilanPage() {
     [currentMonth]
   ) || [];
 
-  const stats = calculateMonthlyStats(budget, transactions);
+  const debtsAndLoans = useLiveQuery(() => db.debtsAndLoans.toArray()) || [];
+  const savingsGoals = useLiveQuery(() => db.savingsGoals.toArray()) || [];
+
+  const profile = useMemo(
+    () => userSettings?.financialProfile ?? createDefaultFinancialProfile(currentMonth),
+    [userSettings?.financialProfile, currentMonth]
+  );
+
+  const stats = calculateMonthlyStats(budget, transactions, {
+    financialProfile: profile,
+    loans: debtsAndLoans,
+    month: currentMonth,
+  });
 
   // Load existing reflection for this periodKey
   useEffect(() => {
@@ -238,6 +252,15 @@ export default function BilanPage() {
             </div>
           </div>
         </div>
+
+        {/* Vue Épargne & Dettes + Projection 9+ mois */}
+        <NetWorthAndProjection
+          profile={profile}
+          loans={debtsAndLoans}
+          savingsGoals={savingsGoals}
+          currentMonth={currentMonth}
+          currency={currency}
+        />
 
         {/* The 4 Kakeibo Questions Form */}
         <form onSubmit={handleSaveReflection} className="space-y-4">

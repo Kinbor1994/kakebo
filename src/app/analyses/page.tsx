@@ -14,7 +14,6 @@ import { PillarDonutChart } from '@/components/charts/PillarDonutChart';
 import { MonthlyTrendBar, type MonthTrendData } from '@/components/charts/MonthlyTrendBar';
 import { NoSpendCalendar } from '@/components/charts/NoSpendCalendar';
 import { subMonths, format, parseISO } from 'date-fns';
-import { BarChart3, PieChart, CalendarDays } from 'lucide-react';
 
 export default function AnalysesPage() {
   const { isLocked, userSettings } = useSecurity();
@@ -37,8 +36,13 @@ export default function AnalysesPage() {
 
   const allBudgets = useLiveQuery(() => db.monthlyBudgets.toArray()) || [];
   const allTransactions = useLiveQuery(() => db.transactions.toArray()) || [];
+  const debtsAndLoans = useLiveQuery(() => db.debtsAndLoans.toArray()) || [];
 
-  const stats = calculateMonthlyStats(budget, transactions);
+  const stats = calculateMonthlyStats(budget, transactions, {
+    financialProfile: userSettings?.financialProfile,
+    loans: debtsAndLoans,
+    month: currentMonth,
+  });
 
   // Compute 6-month historical trend
   const currentDate = parseISO(`${currentMonth}-01`);
@@ -50,7 +54,11 @@ export default function AnalysesPage() {
   const trendData: MonthTrendData[] = last6Months.map((m) => {
     const mBudget = allBudgets.find((b) => b.month === m);
     const mTx = allTransactions.filter((t) => t.month === m);
-    const mStats = calculateMonthlyStats(mBudget, mTx);
+    const mStats = calculateMonthlyStats(mBudget, mTx, {
+      financialProfile: userSettings?.financialProfile,
+      loans: debtsAndLoans,
+      month: m,
+    });
 
     return {
       month: m,

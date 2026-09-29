@@ -169,7 +169,7 @@ export async function getOrCreateUserSettings(): Promise<UserSettings> {
 }
 
 /**
- * Charge le profil financier de démonstration et le prêt de référence sans supprimer aucune donnée existante
+ * Charge le profil financier de démonstration et le prêt de référence sans doublons de prêts bancaires
  */
 export async function loadDemoFinancialProfile(): Promise<void> {
   const { profile, demoLoan } = createDemoReferenceData();
@@ -181,20 +181,15 @@ export async function loadDemoFinancialProfile(): Promise<void> {
     });
   }
 
-  // Vérifie si le prêt de démonstration existe déjà sans écraser les autres prêts/tontines
+  // Remplace les anciens prêts bancaires actifs par le prêt de référence pour éviter tout doublon
   const existingLoans = await db.debtsAndLoans.toArray();
-  const matchingLoan = existingLoans.find(
-    (l) => l.type === 'bank_loan' && l.title.toLowerCase().trim() === demoLoan.title.toLowerCase().trim()
-  );
-
-  if (matchingLoan?.id) {
-    await db.debtsAndLoans.update(matchingLoan.id, {
-      ...demoLoan,
-      paidAmount: matchingLoan.paidAmount,
-    });
-  } else {
-    await db.debtsAndLoans.add(demoLoan);
+  const existingBankLoans = existingLoans.filter((l) => l.type === 'bank_loan');
+  for (const oldLoan of existingBankLoans) {
+    if (oldLoan.id) {
+      await db.debtsAndLoans.delete(oldLoan.id);
+    }
   }
+  await db.debtsAndLoans.add(demoLoan);
 }
 
 /**

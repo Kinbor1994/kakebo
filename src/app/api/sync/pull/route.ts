@@ -39,7 +39,7 @@ export async function GET() {
       userSettings && typeof userSettings.custom_categories === 'object' && userSettings.custom_categories !== null
         ? (userSettings.custom_categories as Record<string, unknown>)
         : {};
-    const { __financialProfile, ...cleanCustomCategories } = rawCustomCategories;
+    const { __financialProfile, __resetAt, ...cleanCustomCategories } = rawCustomCategories;
 
     return NextResponse.json({
       success: true,
@@ -53,6 +53,7 @@ export async function GET() {
               pinHash: userSettings.pin_hash,
               pinSalt: userSettings.pin_salt,
               financialProfile: __financialProfile || undefined,
+              resetAt: typeof __resetAt === 'string' ? __resetAt : undefined,
             }
           : null,
         monthlyBudgets: budgetsRows.map((b) => ({

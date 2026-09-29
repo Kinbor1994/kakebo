@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   type FinancialProfile,
+  type MonthlyBudget,
   type DebtOrLoan,
   type SavingsGoal,
   type FuelScenarioMode,
@@ -27,6 +28,7 @@ import {
 
 interface NetWorthAndProjectionProps {
   profile: FinancialProfile;
+  budget?: MonthlyBudget | null;
   loans: DebtOrLoan[];
   savingsGoals: SavingsGoal[];
   currentMonth: string;
@@ -37,44 +39,57 @@ interface NetWorthAndProjectionProps {
 
 export function NetWorthAndProjection({
   profile,
+  budget,
   loans,
   savingsGoals,
   currentMonth,
   currency,
   compact = false,
 }: NetWorthAndProjectionProps) {
-  // Determine default start month for projection (if an active bank loan exists, use its start month or currentMonth)
-  const activeBankLoan = loans.find((l) => l.type === 'bank_loan' && l.status === 'active');
-  const defaultProjStart = activeBankLoan?.startDate
-    ? activeBankLoan.startDate.slice(0, 7)
-    : currentMonth;
+  // Fallback to MonthlyBudget if recurringMonthlyIncome in profile is still 0
+  const effectiveProfile = useMemo<FinancialProfile>(() => {
+    if (profile.recurringMonthlyIncome > 0) return profile;
+    if (budget && (budget.fixedIncomes > 0 || budget.extraIncomes > 0)) {
+      return {
+        ...profile,
+        recurringMonthlyIncome: budget.fixedIncomes + budget.extraIncomes,
+        monthlyFixedCharges:
+          profile.monthlyFixedCharges > 0 ? profile.monthlyFixedCharges : budget.fixedExpenses,
+        extraTargetSavings:
+          profile.extraTargetSavings > 0 ? profile.extraTargetSavings : budget.targetSavings,
+      };
+    }
+    return profile;
+  }, [profile, budget]);
 
-  const [projStartMonth, setProjStartMonth] = useState<string>(defaultProjStart);
-  const [monthsCount, setMonthsCount] = useState<number>(10); // 9 months loan + 1 month post-loan (e.g. Sept 2026 -> June 2027)
+  const [projStartMonthOverride, setProjStartMonth] = useState<string | null>(null);
+  const projStartMonth = projStartMonthOverride ?? currentMonth;
+  const [monthsCount, setMonthsCount] = useState<number>(10);
   const [selectedScenario, setSelectedScenario] = useState<FuelScenarioMode>(
-    profile.fuelConfig.activeScenario
+    effectiveProfile.fuelConfig.activeScenario
   );
   const [simFuelPrice, setSimFuelPrice] = useState<string>(
-    String(profile.fuelConfig.pricePerLiter || 695)
+    String(effectiveProfile.fuelConfig.pricePerLiter || 695)
   );
   const [simUnexpectedAmount, setSimUnexpectedAmount] = useState<string>('0');
-  const [simUnexpectedMonth, setSimUnexpectedMonth] = useState<string>(defaultProjStart);
+  const [simUnexpectedMonthOverride, setSimUnexpectedMonth] = useState<string | null>(null);
+  const simUnexpectedMonth = simUnexpectedMonthOverride ?? projStartMonth;
 
   // 1. Net Worth Calculation (Liquide vs Épargne bloquée vs Dettes)
   const netWorth = useMemo(() => {
     return calculateNetWorth({
-      profile,
+      profile: effectiveProfile,
       loans,
       savingsGoals,
       targetMonth: currentMonth,
     });
-  }, [profile, loans, savingsGoals, currentMonth]);
+  }, [effectiveProfile, loans, savingsGoals, currentMonth]);
 
   // 2. Multi-month Projections (Scenario A Solo vs Scenario B Shared)
   const parsedFuelPrice = useMemo(() => {
     const n = Number(simFuelPrice.replace(/\s+/g, '').replace(',', '.'));
-    return Number.isFinite(n) && n >= 0 ? Math.round(n) : profile.fuelConfig.pricePerLiter;
-  }, [simFuelPrice, profile.fuelConfig.pricePerLiter]);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : effectiveProfile.fuelConfig.pricePerLiter;
+  }, [simFuelPrice, effectiveProfile.fuelConfig.pricePerLiter]);
 
   const parsedUnexpected = useMemo(() => {
     const n = Number(simUnexpectedAmount.replace(/\s+/g, '').replace(',', '.'));
@@ -83,7 +98,7 @@ export function NetWorthAndProjection({
 
   const projectionResult = useMemo(() => {
     return generateMultiMonthProjection({
-      profile,
+      profile: effectiveProfile,
       loans,
       savingsGoals,
       startMonth: projStartMonth,
@@ -93,7 +108,7 @@ export function NetWorthAndProjection({
       unexpectedExpenseMonth: simUnexpectedMonth,
     });
   }, [
-    profile,
+    effectiveProfile,
     loans,
     savingsGoals,
     projStartMonth,

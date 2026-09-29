@@ -231,13 +231,16 @@ export default function DashboardPage() {
         </section>
 
         {/* Net Worth (Liquide / Épargne Bloquée / Dettes) & Multi-Month Projection */}
-        <NetWorthAndProjection
-          profile={profile}
-          loans={debtsAndLoans}
-          savingsGoals={savingsGoals}
-          currentMonth={currentMonth}
-          currency={currency}
-        />
+        {(stats.totalIncome > 0 || debtsAndLoans.length > 0 || savingsGoals.length > 0) && (
+          <NetWorthAndProjection
+            profile={profile}
+            budget={budget}
+            loans={debtsAndLoans}
+            savingsGoals={savingsGoals}
+            currentMonth={currentMonth}
+            currency={currency}
+          />
+        )}
 
         {/* Quick Modules Navigation Grid */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">

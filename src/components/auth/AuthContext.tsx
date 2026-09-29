@@ -66,27 +66,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       db.debtsAndLoans.toArray(),
     ]);
 
-    return {
-      userSettings: userSettings
-        ? {
-            currency: userSettings.currency,
-            customCategories: userSettings.customCategories,
-            customIncomeCategories: userSettings.customIncomeCategories,
-            biometricsEnabled: userSettings.isBiometricEnabled,
-            pinHash: userSettings.pinHash,
-            pinSalt: userSettings.pinSalt,
-            financialProfile: userSettings.financialProfile,
-          }
-        : undefined,
-      monthlyBudgets,
-      transactions,
-      reflections,
-      savingsGoals,
-      recurringItems,
-      wishlistItems,
-      debtsAndLoans,
-    };
-  }, []);
+      const localResetAt =
+        typeof window !== 'undefined' ? window.localStorage.getItem('kakeibo_reset_at') : null;
+
+      return {
+        userSettings: userSettings
+          ? {
+              currency: userSettings.currency,
+              customCategories: userSettings.customCategories,
+              customIncomeCategories: userSettings.customIncomeCategories,
+              biometricsEnabled: userSettings.isBiometricEnabled,
+              pinHash: userSettings.pinHash,
+              pinSalt: userSettings.pinSalt,
+              financialProfile: userSettings.financialProfile,
+              resetAt: localResetAt || undefined,
+            }
+          : undefined,
+        monthlyBudgets,
+        transactions,
+        reflections,
+        savingsGoals,
+        recurringItems,
+        wishlistItems,
+        debtsAndLoans,
+      };
+    }, []);
 
   // Hydrate local Dexie database from cloud data payload
   const hydrateLocalDatabase = useCallback(async (cloudData: {
@@ -98,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       pinHash?: string | null;
       pinSalt?: string | null;
       financialProfile?: FinancialProfile;
+      resetAt?: string;
     } | null;
     monthlyBudgets?: Array<{
       month: string;
@@ -177,29 +182,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setSyncingFromCloud(true);
     try {
+      // Check if cloud database was reset more recently than local IndexedDB
+      const cloudResetAt = cloudData.userSettings?.resetAt;
+      const localResetAt =
+        typeof window !== 'undefined' ? window.localStorage.getItem('kakeibo_reset_at') : null;
+
+      if (cloudResetAt && cloudResetAt !== localResetAt) {
+        await Promise.all([
+          db.monthlyBudgets.clear(),
+          db.transactions.clear(),
+          db.reflections.clear(),
+          db.savingsGoals.clear(),
+          db.recurringItems.clear(),
+          db.wishlistItems.clear(),
+          db.debtsAndLoans.clear(),
+        ]);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('kakeibo_reset_at', cloudResetAt);
+        }
+      }
+
       // 1. User Settings (Non-destructive update)
-    if (cloudData.userSettings) {
-      const existingSettings = await db.userSettings.toCollection().first();
-      const newSettings: UserSettings = {
-        id: existingSettings?.id || 1,
-        currency: cloudData.userSettings.currency || existingSettings?.currency || 'XOF',
-        customCategories: (cloudData.userSettings.customCategories as Record<KakeiboPillar, string[]>) || existingSettings?.customCategories || {
-          needs: PILLARS_CONFIG.needs.defaultCategories,
-          wants: PILLARS_CONFIG.wants.defaultCategories,
-          culture: PILLARS_CONFIG.culture.defaultCategories,
-          unexpected: PILLARS_CONFIG.unexpected.defaultCategories,
-        },
-        customIncomeCategories: cloudData.userSettings.customIncomeCategories || existingSettings?.customIncomeCategories || DEFAULT_INCOME_CATEGORIES,
-        isBiometricEnabled: Boolean(cloudData.userSettings.biometricsEnabled ?? existingSettings?.isBiometricEnabled),
-        isPinEnabled: Boolean(cloudData.userSettings.pinHash ?? existingSettings?.pinHash),
-        pinHash: cloudData.userSettings.pinHash || existingSettings?.pinHash,
-        pinSalt: cloudData.userSettings.pinSalt || existingSettings?.pinSalt,
-        autoLockMinutes: existingSettings?.autoLockMinutes || 5,
-        theme: existingSettings?.theme || 'dark',
-        financialProfile: cloudData.userSettings.financialProfile || existingSettings?.financialProfile,
-      };
-      await db.userSettings.put(newSettings);
-    }
+      if (cloudData.userSettings) {
+        const existingSettings = await db.userSettings.toCollection().first();
+        const newSettings: UserSettings = {
+          id: existingSettings?.id || 1,
+          currency: cloudData.userSettings.currency || existingSettings?.currency || 'XOF',
+          customCategories:
+            (cloudData.userSettings.customCategories as Record<KakeiboPillar, string[]>) ||
+            existingSettings?.customCategories || {
+              needs: PILLARS_CONFIG.needs.defaultCategories,
+              wants: PILLARS_CONFIG.wants.defaultCategories,
+              culture: PILLARS_CONFIG.culture.defaultCategories,
+              unexpected: PILLARS_CONFIG.unexpected.defaultCategories,
+            },
+          customIncomeCategories:
+            cloudData.userSettings.customIncomeCategories ||
+            existingSettings?.customIncomeCategories ||
+            DEFAULT_INCOME_CATEGORIES,
+          isBiometricEnabled: Boolean(
+            cloudData.userSettings.biometricsEnabled ?? existingSettings?.isBiometricEnabled
+          ),
+          isPinEnabled: Boolean(cloudData.userSettings.pinHash ?? existingSettings?.pinHash),
+          pinHash: cloudData.userSettings.pinHash || existingSettings?.pinHash,
+          pinSalt: cloudData.userSettings.pinSalt || existingSettings?.pinSalt,
+          autoLockMinutes: existingSettings?.autoLockMinutes || 5,
+          theme: existingSettings?.theme || 'dark',
+          financialProfile:
+            cloudResetAt && cloudResetAt !== localResetAt
+              ? cloudData.userSettings.financialProfile
+              : cloudData.userSettings.financialProfile || existingSettings?.financialProfile,
+        };
+        await db.userSettings.put(newSettings);
+      }
 
     // 2. Monthly Budgets (Merge union by month without clearing local months)
     if (cloudData.monthlyBudgets) {

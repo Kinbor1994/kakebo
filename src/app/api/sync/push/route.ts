@@ -13,6 +13,7 @@ interface PushSyncBody {
     pinHash?: string | null;
     pinSalt?: string | null;
     financialProfile?: unknown;
+    resetAt?: string;
   };
   monthlyBudgets?: Array<{
     month: string;
@@ -102,6 +103,9 @@ export async function POST(req: Request) {
         ...(body.userSettings.financialProfile
           ? { __financialProfile: body.userSettings.financialProfile }
           : {}),
+        ...(body.userSettings.resetAt
+          ? { __resetAt: body.userSettings.resetAt }
+          : {}),
       };
       const customCategories = JSON.stringify(customCategoriesPayload);
       const customIncomeCategories = JSON.stringify(body.userSettings.customIncomeCategories || []);
@@ -123,20 +127,13 @@ export async function POST(req: Request) {
       `;
     }
 
-    // 2. Sync Monthly Budgets
+    // 2. Sync Monthly Budgets (Replace snapshot for full consistency, including resets)
     if (body.monthlyBudgets) {
-      // Upsert budgets
+      await sql`DELETE FROM monthly_budgets WHERE user_id = ${userId}`;
       for (const b of body.monthlyBudgets) {
         await sql`
           INSERT INTO monthly_budgets (user_id, month, fixed_incomes, extra_incomes, fixed_expenses, target_savings, notes, updated_at)
           VALUES (${userId}, ${b.month}, ${b.fixedIncomes}, ${b.extraIncomes}, ${b.fixedExpenses}, ${b.targetSavings}, ${b.notes || null}, NOW())
-          ON CONFLICT (user_id, month) DO UPDATE SET
-            fixed_incomes = EXCLUDED.fixed_incomes,
-            extra_incomes = EXCLUDED.extra_incomes,
-            fixed_expenses = EXCLUDED.fixed_expenses,
-            target_savings = EXCLUDED.target_savings,
-            notes = EXCLUDED.notes,
-            updated_at = NOW()
         `;
       }
     }

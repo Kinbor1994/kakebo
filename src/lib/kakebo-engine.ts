@@ -18,7 +18,8 @@ import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 export function getCurrentMonth(): string {
-  return format(new Date(), 'yyyy-MM');
+  const nowMonth = format(new Date(), 'yyyy-MM');
+  return nowMonth < '2026-10' ? '2026-10' : nowMonth;
 }
 
 export function formatMonthLabel(monthStr: string): string {

@@ -276,6 +276,43 @@ export default function ParametresPage() {
   };
 
   const handleWipeDatabase = async () => {
+    const resetAt = new Date().toISOString();
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('kakeibo_reset_at', resetAt);
+    }
+    if (user) {
+      try {
+        await fetch('/api/sync/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userSettings: {
+              currency: 'XOF',
+              customCategories: {
+                needs: [...PILLARS_CONFIG.needs.defaultCategories],
+                wants: [...PILLARS_CONFIG.wants.defaultCategories],
+                culture: [...PILLARS_CONFIG.culture.defaultCategories],
+                unexpected: [...PILLARS_CONFIG.unexpected.defaultCategories],
+              },
+              customIncomeCategories: [...DEFAULT_INCOME_CATEGORIES],
+              biometricsEnabled: false,
+              pinHash: null,
+              pinSalt: null,
+              resetAt,
+            },
+            monthlyBudgets: [],
+            transactions: [],
+            reflections: [],
+            savingsGoals: [],
+            debtsAndLoans: [],
+            recurringItems: [],
+            wishlistItems: [],
+          }),
+        });
+      } catch (err) {
+        console.error('Failed to wipe cloud database:', err);
+      }
+    }
     await db.delete();
     window.location.reload();
   };

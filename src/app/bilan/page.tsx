@@ -256,6 +256,7 @@ export default function BilanPage() {
         {/* Vue Épargne & Dettes + Projection 9+ mois */}
         <NetWorthAndProjection
           profile={profile}
+          budget={budget}
           loans={debtsAndLoans}
           savingsGoals={savingsGoals}
           currentMonth={currentMonth}

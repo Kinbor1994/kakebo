@@ -3,8 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/lib/db';
-import { getCurrentMonth, calculateLoanMonthlyPayment } from '@/lib/kakebo-engine';
-import { type DebtOrLoan, type DebtLoanType } from '@/types/kakebo';
+import { getCurrentMonth } from '@/lib/kakebo-engine';
+import { calculateLoanSchedule } from '@/lib/financial-engine';
+import { type DebtOrLoan, type DebtLoanType, type LoanInterestType } from '@/types/kakebo';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { QuickAddModal } from '@/components/kakebo/QuickAddModal';
@@ -21,12 +22,13 @@ import {
   Percent,
   Calculator,
   Calendar,
-  Sparkles,
   Pencil,
   Trash2,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
-import { format, addMonths, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 export default function TontinesPage() {
   const { isLocked, userSettings } = useSecurity();
@@ -38,6 +40,7 @@ export default function TontinesPage() {
 
   // Filter tabs: 'all' | 'bank_loan' | 'tontine' | 'lent' | 'borrowed'
   const [activeTab, setActiveTab] = useState<'all' | DebtLoanType>('all');
+  const [expandedScheduleId, setExpandedScheduleId] = useState<number | null>(null);
 
   // New / Edit modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -47,12 +50,14 @@ export default function TontinesPage() {
   const [entryType, setEntryType] = useState<DebtLoanType>('bank_loan');
   const [title, setTitle] = useState<string>('');
   const [contactName, setContactName] = useState<string>('');
-  const [totalAmount, setTotalAmount] = useState<string>('5000000');
+  const [totalAmount, setTotalAmount] = useState<string>('250000');
   const [paidAmount, setPaidAmount] = useState<string>('0');
-  const [interestRate, setInterestRate] = useState<string>('7.5');
-  const [durationMonths, setDurationMonths] = useState<number>(36);
+  const [interestRate, setInterestRate] = useState<string>('8');
+  const [interestType, setInterestType] = useState<LoanInterestType>('flat');
+  const [monthlyFee, setMonthlyFee] = useState<string>('674');
+  const [durationMonths, setDurationMonths] = useState<number>(9);
   const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [dayOfMonth, setDayOfMonth] = useState<number>(5);
+  const [dayOfMonth, setDayOfMonth] = useState<number>(25);
   const [dueDate, setDueDate] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
@@ -74,49 +79,51 @@ export default function TontinesPage() {
   // Dynamic automatic loan calculation
   const parsedPrincipal = parseFloat(totalAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
   const parsedRate = parseFloat(interestRate.replace(/\s+/g, '').replace(',', '.')) || 0;
+  const parsedFee = parseFloat(monthlyFee.replace(/\s+/g, '').replace(',', '.')) || 0;
+  const parsedPaid = parseFloat(paidAmount.replace(/\s+/g, '').replace(',', '.')) || 0;
 
   const loanCalculation = useMemo(() => {
-    return calculateLoanMonthlyPayment(parsedPrincipal, parsedRate, durationMonths);
-  }, [parsedPrincipal, parsedRate, durationMonths]);
-
-  // Compute calculated end date
-  const calculatedEndDate = useMemo(() => {
-    try {
-      const parsedStart = parseISO(startDate);
-      return format(addMonths(parsedStart, durationMonths), 'yyyy-MM-dd');
-    } catch {
-      return '';
-    }
-  }, [startDate, durationMonths]);
+    return calculateLoanSchedule({
+      principal: parsedPrincipal,
+      interestRate: parsedRate,
+      interestType,
+      durationMonths,
+      monthlyFee: parsedFee,
+      startDate: startDate || format(new Date(), 'yyyy-MM-dd'),
+      paidAmount: parsedPaid,
+    });
+  }, [parsedPrincipal, parsedRate, interestType, durationMonths, parsedFee, startDate, parsedPaid]);
 
   // Aggregate totals
   const totalBankLoansRemaining = debtsAndLoans
     .filter((d) => d.type === 'bank_loan' && d.status === 'active')
-    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+    .reduce((sum, d) => sum + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
   const totalTontineRemaining = debtsAndLoans
     .filter((d) => d.type === 'tontine' && d.status === 'active')
-    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+    .reduce((sum, d) => sum + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
   const totalLentRemaining = debtsAndLoans
     .filter((d) => d.type === 'lent' && d.status === 'active')
-    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+    .reduce((sum, d) => sum + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
   const totalBorrowedRemaining = debtsAndLoans
     .filter((d) => d.type === 'borrowed' && d.status === 'active')
-    .reduce((sum, d) => sum + (d.totalAmount - d.paidAmount), 0);
+    .reduce((sum, d) => sum + Math.max(0, d.totalAmount - d.paidAmount), 0);
 
   const handleOpenAdd = () => {
     setEditingItem(null);
     setEntryType('bank_loan');
     setTitle('');
     setContactName('');
-    setTotalAmount('5000000');
+    setTotalAmount('250000');
     setPaidAmount('0');
-    setInterestRate('7.5');
-    setDurationMonths(36);
+    setInterestRate('8');
+    setInterestType('flat');
+    setMonthlyFee('674');
+    setDurationMonths(9);
     setStartDate(format(new Date(), 'yyyy-MM-dd'));
-    setDayOfMonth(5);
+    setDayOfMonth(25);
     setDueDate('');
     setNotes('');
     setIsAddModalOpen(true);
@@ -129,10 +136,12 @@ export default function TontinesPage() {
     setContactName(item.contactName);
     setTotalAmount(String(item.totalAmount));
     setPaidAmount(String(item.paidAmount));
-    setInterestRate(item.interestRate !== undefined ? String(item.interestRate) : '7.5');
-    setDurationMonths(item.durationMonths || 36);
-    setStartDate(format(new Date(), 'yyyy-MM-dd'));
-    setDayOfMonth(item.dayOfMonth || 5);
+    setInterestRate(item.interestRate !== undefined ? String(item.interestRate) : '8');
+    setInterestType(item.interestType || 'declining');
+    setMonthlyFee(String(item.monthlyFee || 0));
+    setDurationMonths(item.durationMonths || 9);
+    setStartDate(item.startDate || format(new Date(), 'yyyy-MM-dd'));
+    setDayOfMonth(item.dayOfMonth || 25);
     setDueDate(item.dueDate || '');
     setNotes(item.notes || '');
     setIsAddModalOpen(true);
@@ -153,11 +162,14 @@ export default function TontinesPage() {
           contactName: contactName.trim() || 'Établissement Bancaire',
           totalAmount: parsedPrincipal,
           paidAmount: numPaid,
-          monthlyPayment: loanCalculation.monthlyPayment,
+          monthlyPayment: loanCalculation.actualMonthlyPayment,
+          monthlyFee: parsedFee,
           durationMonths,
           interestRate: parsedRate,
+          interestType,
           totalInterest: loanCalculation.totalInterest,
-          dueDate: calculatedEndDate,
+          startDate,
+          dueDate: loanCalculation.endDate,
           dayOfMonth,
           notes: notes.trim() || undefined,
           status: numPaid >= parsedPrincipal ? 'settled' : 'active',
@@ -184,11 +196,14 @@ export default function TontinesPage() {
           contactName: contactName.trim() || 'Établissement Bancaire',
           totalAmount: parsedPrincipal,
           paidAmount: numPaid,
-          monthlyPayment: loanCalculation.monthlyPayment,
+          monthlyPayment: loanCalculation.actualMonthlyPayment,
+          monthlyFee: parsedFee,
           durationMonths,
           interestRate: parsedRate,
+          interestType,
           totalInterest: loanCalculation.totalInterest,
-          dueDate: calculatedEndDate,
+          startDate,
+          dueDate: loanCalculation.endDate,
           dayOfMonth,
           notes: notes.trim() || undefined,
           status: numPaid >= parsedPrincipal ? 'settled' : 'active',
@@ -421,6 +436,21 @@ export default function TontinesPage() {
               const remaining = Math.max(0, item.totalAmount - item.paidAmount);
               const progress = item.totalAmount > 0 ? Math.round((item.paidAmount / item.totalAmount) * 100) : 0;
 
+              const loanSummary =
+                item.type === 'bank_loan'
+                  ? calculateLoanSchedule({
+                      principal: item.totalAmount,
+                      interestRate: item.interestRate ?? 0,
+                      interestType: item.interestType ?? 'declining',
+                      durationMonths: item.durationMonths ?? 12,
+                      monthlyFee: item.monthlyFee ?? 0,
+                      startDate: item.startDate || item.createdAt.slice(0, 10),
+                      paidAmount: item.paidAmount,
+                    })
+                  : null;
+
+              const isExpanded = expandedScheduleId === item.id;
+
               return (
                 <div
                   key={item.id}
@@ -455,10 +485,10 @@ export default function TontinesPage() {
                       <p className="text-[11px] text-slate-500">
                         Organisme / Contact : <strong>{item.contactName}</strong>
                         {item.monthlyPayment && ` • Mensualité : ${formatCurrency(item.monthlyPayment, currency)}`}
-                        {item.interestRate !== undefined && ` • Taux : ${item.interestRate}%`}
+                        {item.interestRate !== undefined &&
+                          ` • Taux : ${item.interestRate}% (${item.interestType === 'flat' ? 'forfaitaire' : 'annuel'})`}
                         {item.durationMonths && ` • Durée : ${item.durationMonths} mois`}
                         {item.dayOfMonth && ` • Prélèvement le ${item.dayOfMonth}`}
-                        {item.dueDate && ` • Fin : ${item.dueDate}`}
                       </p>
                     </div>
 
@@ -518,6 +548,116 @@ export default function TontinesPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Detailed Loan Metrics & Amortization Schedule */}
+                  {loanSummary && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                          <span className="text-slate-400 block text-[10px]">Prochaine échéance</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {loanSummary.nextInstallment?.dueDate || 'Soldé'}
+                          </span>
+                          <span className="block text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                            {formatCurrency(loanSummary.nextInstallment?.totalPayment ?? 0, currency)}
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                          <span className="text-slate-400 block text-[10px]">Date de fin</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-100">
+                            {loanSummary.endDate}
+                          </span>
+                          <span className="block text-[10px] text-slate-500">
+                            {item.durationMonths} mensualités
+                          </span>
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                          <span className="text-slate-400 block text-[10px]">Intérêts totaux</span>
+                          <span className="font-bold text-amber-600 dark:text-amber-400">
+                            {formatCurrency(loanSummary.totalInterest, currency)}
+                          </span>
+                          {loanSummary.totalFees > 0 && (
+                            <span className="block text-[10px] text-slate-500">
+                              + {formatCurrency(loanSummary.totalFees, currency)} frais
+                            </span>
+                          )}
+                        </div>
+                        <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60">
+                          <span className="text-slate-400 block text-[10px]">Reste total dû</span>
+                          <span className="font-bold text-rose-600 dark:text-rose-400">
+                            {formatCurrency(loanSummary.remainingBalance, currency)}
+                          </span>
+                          <span className="block text-[10px] text-slate-500">
+                            Coût global : {formatCurrency(loanSummary.totalWithFees, currency)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setExpandedScheduleId(isExpanded ? null : (item.id ?? null))}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/70 dark:border-purple-900/50 text-xs font-bold text-purple-800 dark:text-purple-300 hover:bg-purple-100/70 transition"
+                      >
+                        <span className="flex items-center space-x-1.5">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>
+                            {isExpanded
+                              ? "Masquer l'échéancier mois par mois"
+                              : `Voir l'échéancier mois par mois (${loanSummary.schedule.length} mois)`}
+                          </span>
+                        </span>
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                          <table className="w-full text-left text-[11px]">
+                            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold">
+                              <tr>
+                                <th className="py-2 px-2.5">#</th>
+                                <th className="py-2 px-2.5">Échéance</th>
+                                <th className="py-2 px-2.5">Capital</th>
+                                <th className="py-2 px-2.5">Intérêts</th>
+                                <th className="py-2 px-2.5">Frais</th>
+                                <th className="py-2 px-2.5">Mensualité</th>
+                                <th className="py-2 px-2.5">Reste dû</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                              {loanSummary.schedule.map((row) => (
+                                <tr
+                                  key={row.installmentNumber}
+                                  className={
+                                    row.isPaid
+                                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 text-slate-400'
+                                      : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200'
+                                  }
+                                >
+                                  <td className="py-1.5 px-2.5 font-bold">{row.installmentNumber}</td>
+                                  <td className="py-1.5 px-2.5 whitespace-nowrap">{row.dueDate}</td>
+                                  <td className="py-1.5 px-2.5 whitespace-nowrap">
+                                    {formatCurrency(row.principalPart, currency)}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 whitespace-nowrap">
+                                    {formatCurrency(row.interestPart, currency)}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 whitespace-nowrap">
+                                    {formatCurrency(row.feePart, currency)}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 font-bold text-purple-700 dark:text-purple-300 whitespace-nowrap">
+                                    {formatCurrency(row.totalPayment, currency)}
+                                  </td>
+                                  <td className="py-1.5 px-2.5 font-semibold whitespace-nowrap">
+                                    {formatCurrency(row.remainingTotalAfter, currency)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -631,7 +771,7 @@ export default function TontinesPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={
                     entryType === 'bank_loan'
-                      ? 'Ex: Prêt Scolaire Rentrée, Crédit Consommation, Prêt Véhicule, Crédit Immo...'
+                      ? 'Ex: Prêt Court Terme, Prêt Scolaire Rentrée, Crédit Consommation...'
                       : 'Ex: Tontine des amis, Prêt frangin...'
                   }
                   required
@@ -667,7 +807,7 @@ export default function TontinesPage() {
                     inputMode="numeric"
                     value={totalAmount}
                     onChange={(e) => setTotalAmount(e.target.value)}
-                    placeholder="5000000"
+                    placeholder="250000"
                     required
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 outline-hidden font-bold focus:border-purple-500"
                   />
@@ -692,17 +832,31 @@ export default function TontinesPage() {
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center space-x-1">
                         <Percent className="h-3 w-3 text-purple-600" />
-                        <span>Taux annuel (%)</span>
+                        <span>Taux (%)</span>
                       </label>
                       <input
                         type="text"
                         value={interestRate}
                         onChange={(e) => setInterestRate(e.target.value)}
-                        placeholder="7.5"
+                        placeholder="8"
                         className="w-full px-3 py-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 outline-hidden font-bold"
                       />
                     </div>
 
+                    <div className="space-y-1">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300">Mode de calcul</label>
+                      <select
+                        value={interestType}
+                        onChange={(e) => setInterestType(e.target.value as LoanInterestType)}
+                        className="w-full px-2.5 py-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 outline-hidden font-bold"
+                      >
+                        <option value="flat">Taux forfaitaire unique</option>
+                        <option value="declining">Taux annuel dégressif</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <label className="font-semibold text-slate-700 dark:text-slate-300">Durée (en mois)</label>
                       <input
@@ -711,6 +865,20 @@ export default function TontinesPage() {
                         max={360}
                         value={durationMonths}
                         onChange={(e) => setDurationMonths(Math.max(1, Number(e.target.value)))}
+                        className="w-full px-3 py-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 outline-hidden font-bold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="font-semibold text-slate-700 dark:text-slate-300">
+                        Frais mensuels ({currency})
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={monthlyFee}
+                        onChange={(e) => setMonthlyFee(e.target.value)}
+                        placeholder="0"
                         className="w-full px-3 py-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-800 outline-hidden font-bold"
                       />
                     </div>
@@ -725,6 +893,24 @@ export default function TontinesPage() {
                       <button
                         type="button"
                         onClick={() => {
+                          setTotalAmount('250000');
+                          setInterestRate('8');
+                          setInterestType('flat');
+                          setDurationMonths(9);
+                          setMonthlyFee('674');
+                          if (!title) setTitle('Prêt Court Terme 9 mois');
+                        }}
+                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
+                          durationMonths === 9 && interestType === 'flat'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
+                        }`}
+                      >
+                        ⚡ Court terme (9 mois • 8% fixe)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
                           setDurationMonths(10);
                           if (!title || title.includes('Prêt')) setTitle('Prêt Scolaire Rentrée');
                         }}
@@ -735,17 +921,6 @@ export default function TontinesPage() {
                         }`}
                       >
                         🎓 Prêt Scolaire (10 mois)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDurationMonths(6)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
-                          durationMonths === 6
-                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
-                        }`}
-                      >
-                        ⚡ Court terme (6 mois)
                       </button>
                       <button
                         type="button"
@@ -780,17 +955,6 @@ export default function TontinesPage() {
                       >
                         36 mois (3 ans)
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setDurationMonths(60)}
-                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition ${
-                          durationMonths === 60
-                            ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                            : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 hover:bg-purple-50'
-                        }`}
-                      >
-                        60 mois (5 ans)
-                      </button>
                     </div>
                   </div>
 
@@ -799,16 +963,18 @@ export default function TontinesPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center space-x-1">
                         <Calculator className="h-3.5 w-3.5 text-purple-600" />
-                        <span>Mensualité calculée automatiquement :</span>
+                        <span>Mensualité totale (avec frais) :</span>
                       </span>
                       <span className="text-sm font-extrabold text-purple-700 dark:text-purple-300">
-                        {formatCurrency(loanCalculation.monthlyPayment, currency)}
+                        {formatCurrency(loanCalculation.actualMonthlyPayment, currency)}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-800">
-                      <span>Intérêts totaux : {formatCurrency(loanCalculation.totalInterest, currency)}</span>
-                      <span>Total à rembourser : {formatCurrency(loanCalculation.totalPayment, currency)}</span>
+                    <div className="flex flex-wrap items-center justify-between gap-1 text-[10px] text-slate-500 pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <span>Intérêts : {formatCurrency(loanCalculation.totalInterest, currency)}</span>
+                      <span>Frais : {formatCurrency(loanCalculation.totalFees, currency)}</span>
+                      <span>Coût total : {formatCurrency(loanCalculation.totalWithFees, currency)}</span>
+                      <span>Fin : {loanCalculation.endDate}</span>
                     </div>
                   </div>
                 </div>
